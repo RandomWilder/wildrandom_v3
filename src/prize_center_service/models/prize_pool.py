@@ -1,6 +1,9 @@
 from datetime import datetime, timezone
 from src.shared import db
 from enum import Enum
+from decimal import Decimal
+from typing import List
+from .prize_instance import PrizeInstance, InstantWinInstance, DrawWinInstance
 
 class PoolStatus(Enum):
     UNLOCKED = "unlocked"
@@ -27,11 +30,17 @@ class PrizePool(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     created_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
-    def can_modify(self):
+    # Updated relationship definition
+    instances = db.relationship('PrizeInstance', 
+                              back_populates='pool',
+                              lazy='dynamic',
+                              cascade='all, delete-orphan')
+
+    def can_modify(self) -> bool:
         """Check if pool can be modified"""
         return self.status == PoolStatus.UNLOCKED
 
-    def validate_for_lock(self):
+    def validate_for_lock(self) -> List[str]:
         """Validate pool can be locked"""
         errors = []
         if self.total_instances == 0:
@@ -41,6 +50,23 @@ class PrizePool(db.Model):
         if not (99.9 <= self.total_odds <= 100.1):  # Allow small floating point variance
             errors.append("Total odds must equal 100%")
         return errors
+
+    def update_totals(self, instances: List[PrizeInstance]) -> None:
+        """Update pool totals based on new instances"""
+        self.total_instances += len(instances)
+        
+        for instance in instances:
+            if isinstance(instance, InstantWinInstance):
+                self.instant_win_instances += 1
+                if hasattr(instance, 'individual_odds'): # Add this check
+                    self.total_odds += instance.individual_odds
+            elif isinstance(instance, DrawWinInstance):
+                self.draw_win_instances += 1
+                # No odds tracking for Draw Win instances
+                
+            self.retail_total += instance.retail_value
+            self.cash_total += instance.cash_value
+            self.credit_total += instance.credit_value
 
     def to_dict(self):
         """Convert pool to dictionary"""

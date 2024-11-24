@@ -1,3 +1,5 @@
+# src/prize_center_service/models/prize_template.py
+
 from datetime import datetime, timezone
 from src.shared import db
 from enum import Enum
@@ -31,6 +33,12 @@ class PrizeTemplate(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     created_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     updated_at = db.Column(db.DateTime, onupdate=lambda: datetime.now(timezone.utc))
+
+    # Add relationship to instances
+    instances = db.relationship('PrizeInstance', 
+                              back_populates='template',
+                              lazy='dynamic',
+                              cascade='all, delete-orphan')
 
     def __init__(self, **kwargs):
         super(PrizeTemplate, self).__init__(**kwargs)

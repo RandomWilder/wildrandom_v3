@@ -20,16 +20,9 @@ def create_prize_center_service(app: Flask = None):
     return app
 
 # Make models available at package level
-from src.prize_center_service.models import (
-    PrizeTemplate,
-    PrizePool,
-    PrizeInstance,
-    InstantWinInstance,
-    DrawWinInstance
-)
+from .models import PrizeTemplate, PrizePool, PrizeInstance, InstantWinInstance, DrawWinInstance
 
 __all__ = [
-    'create_prize_center_service',
     'PrizeTemplate',
     'PrizePool',
     'PrizeInstance',

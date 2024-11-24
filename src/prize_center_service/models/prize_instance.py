@@ -22,35 +22,50 @@ class PrizeInstance(db.Model):
     pool_id = db.Column(db.Integer, db.ForeignKey('prize_pools.id'), nullable=False)
     template_id = db.Column(db.Integer, db.ForeignKey('prize_templates.id'), nullable=False)
     status = db.Column(db.Enum(InstanceStatus), nullable=False, default=InstanceStatus.AVAILABLE)
-    individual_odds = db.Column(db.Float)
     retail_value = db.Column(db.Numeric(10, 2), nullable=False)
     cash_value = db.Column(db.Numeric(10, 2), nullable=False)
     credit_value = db.Column(db.Numeric(10, 2), nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     created_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     
-    # Discriminator column for instance type
     instance_type = db.Column(db.String(20))
+
+    # Relationships
+    pool = db.relationship('PrizePool', back_populates='instances', foreign_keys=[pool_id])
+    template = db.relationship('PrizeTemplate', back_populates='instances')
     
     __mapper_args__ = {
         'polymorphic_identity': 'base',
         'polymorphic_on': instance_type
     }
 
+    def to_dict(self):
+        """Convert instance to dictionary"""
+        return {
+            'instance_id': self.instance_id,
+            'status': self.status.value,
+            'values': {
+                'retail': float(self.retail_value),
+                'cash': float(self.cash_value),
+                'credit': float(self.credit_value)
+            },
+            'created_at': self.created_at.isoformat()
+        }
+
 class InstantWinInstance(PrizeInstance):
     """Instant win specific instance"""
+    individual_odds = db.Column(db.Float)
+    collective_odds = db.Column(db.Float)
+    
     __mapper_args__ = {
         'polymorphic_identity': 'instant_win'
     }
 
-    collective_odds = db.Column(db.Float)
-
 class DrawWinInstance(PrizeInstance):
     """Draw win specific instance"""
+    distribution_type = db.Column(db.Enum(DrawWinDistributionType))
+
     __mapper_args__ = {
         'polymorphic_identity': 'draw_win'
     }
 
-    distribution_type = db.Column(db.Enum(DrawWinDistributionType))
-    draw_number = db.Column(db.Integer)
-    draw_reference = db.Column(db.String(50))
