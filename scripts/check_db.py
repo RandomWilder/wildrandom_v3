@@ -19,7 +19,8 @@ logger = logging.getLogger(__name__)
 
 def check_database():
     """Check database configuration and tables"""
-    app = create_app('development')
+    # Create app without registering blueprints for db checks only
+    app = create_app('development', register_blueprints=False)
     
     with app.app_context():
         try:

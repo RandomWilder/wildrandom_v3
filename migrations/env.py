@@ -11,7 +11,25 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 # Import your models here
-from src.user_service.models.user import User
+from src.user_service.models import (
+    User, 
+    UserActivity, 
+    UserStatusChange, 
+    CreditTransaction
+)
+
+from src.prize_center_service.models import (
+    PrizePool,
+    PrizeTemplate,
+    PrizeInstance
+)
+
+from src.raffle_service.models import (
+    Raffle,
+    Ticket,
+    RaffleDraw,
+    RaffleHistory
+)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -35,19 +53,8 @@ def get_engine():
 from src.shared import db
 target_metadata = db.metadata
 
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
-
 def run_migrations_offline():
-    """Run migrations in 'offline' mode.
-    
-    This configures the context with just a URL
-    and not an Engine, though an Engine is acceptable
-    here as well.  By skipping the Engine creation
-    we don't even need a DBAPI to be available.
-    """
+    """Run migrations in 'offline' mode."""
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
@@ -60,11 +67,7 @@ def run_migrations_offline():
         context.run_migrations()
 
 def run_migrations_online():
-    """Run migrations in 'online' mode.
-    
-    In this scenario we need to create an Engine
-    and associate a connection with the context.
-    """
+    """Run migrations in 'online' mode."""
     connectable = get_engine()
 
     with connectable.connect() as connection:

@@ -10,6 +10,7 @@ sys.path.append(project_root)
 from app import create_app
 from src.shared import db
 from src.user_service.models import User, UserActivity, UserStatusChange, CreditTransaction, PasswordReset
+from src.prize_center_service.models import PrizeInstance, PrizePool, PrizeTemplate
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
@@ -26,19 +27,26 @@ def cleanup_database():
             # Delete records from dependent tables first
             logger.info("Cleaning up dependent tables...")
             
-            # User Activities
+            # Prize center records
+            count = PrizeInstance.query.delete()
+            logger.info(f"Deleted {count} prize instances")
+            
+            count = PrizePool.query.delete()
+            logger.info(f"Deleted {count} prize pools")
+            
+            count = PrizeTemplate.query.delete()
+            logger.info(f"Deleted {count} prize templates")
+            
+            # User activities and relations
             count = UserActivity.query.delete()
             logger.info(f"Deleted {count} user activities")
             
-            # User Status Changes
             count = UserStatusChange.query.delete()
             logger.info(f"Deleted {count} status changes")
             
-            # Credit Transactions
             count = CreditTransaction.query.delete()
             logger.info(f"Deleted {count} credit transactions")
             
-            # Password Resets
             count = PasswordReset.query.delete()
             logger.info(f"Deleted {count} password resets")
             
@@ -49,7 +57,8 @@ def cleanup_database():
             # Reset auto-increment counters
             logger.info("Resetting auto-increment counters...")
             tables = ['users', 'user_activities', 'user_status_changes', 
-                     'credit_transactions', 'password_resets']
+                     'credit_transactions', 'password_resets', 
+                     'prize_instances', 'prize_pools', 'prize_templates']
             
             for table in tables:
                 db.session.execute(db.text(f"ALTER TABLE {table} AUTO_INCREMENT = 1"))

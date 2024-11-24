@@ -1,8 +1,10 @@
+# src/prize_center_service/models/prize_pool.py
+
 from datetime import datetime, timezone
 from src.shared import db
 from enum import Enum
 from decimal import Decimal
-from typing import List
+from typing import List, Optional
 from .prize_instance import PrizeInstance, InstantWinInstance, DrawWinInstance
 
 class PoolStatus(Enum):
@@ -30,11 +32,30 @@ class PrizePool(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     created_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
-    # Updated relationship definition
+    # Relationships
     instances = db.relationship('PrizeInstance', 
                               back_populates='pool',
                               lazy='dynamic',
                               cascade='all, delete-orphan')
+
+    # Raffle Service Integration Methods
+    def get_next_draw_instance(self) -> Optional[DrawWinInstance]:
+        """Get next available draw win instance"""
+        return self.instances.filter_by(
+            instance_type='draw_win',
+            status='available'
+        ).first()
+
+    def get_available_instant_wins(self) -> List[InstantWinInstance]:
+        """Get all available instant win instances"""
+        return self.instances.filter_by(
+            instance_type='instant_win',
+            status='available'
+        ).all()
+
+    def get_instances_by_type(self, instance_type: str) -> List[PrizeInstance]:
+        """Get all instances of specified type"""
+        return self.instances.filter_by(instance_type=instance_type).all()
 
     def can_modify(self) -> bool:
         """Check if pool can be modified"""
@@ -58,15 +79,21 @@ class PrizePool(db.Model):
         for instance in instances:
             if isinstance(instance, InstantWinInstance):
                 self.instant_win_instances += 1
-                if hasattr(instance, 'individual_odds'): # Add this check
+                if hasattr(instance, 'individual_odds'):
                     self.total_odds += instance.individual_odds
             elif isinstance(instance, DrawWinInstance):
                 self.draw_win_instances += 1
-                # No odds tracking for Draw Win instances
                 
             self.retail_total += instance.retail_value
             self.cash_total += instance.cash_value
             self.credit_total += instance.credit_value
+
+    def verify_raffle_compatibility(self) -> bool:
+        """Verify pool is compatible with raffle usage"""
+        return (
+            self.status == PoolStatus.LOCKED and
+            self.draw_win_instances > 0
+        )
 
     def to_dict(self):
         """Convert pool to dictionary"""
@@ -87,3 +114,5 @@ class PrizePool(db.Model):
             'locked_at': self.locked_at.isoformat() if self.locked_at else None,
             'created_at': self.created_at.isoformat()
         }
+
+# Update the __init__.py for prize_center_service models
