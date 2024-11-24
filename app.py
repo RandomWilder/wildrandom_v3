@@ -3,6 +3,7 @@
 from flask import Flask
 from src.shared import init_db, config
 from src.user_service import create_user_service, User
+from src.prize_center_service import create_prize_center_service
 import os
 import logging
 from logging.handlers import RotatingFileHandler
@@ -25,7 +26,7 @@ def create_app(config_name=None):
     # Initialize extensions
     init_db(app)
     
-    # Register blueprints
+    # Register User Service blueprints
     from src.user_service.routes.user_routes import user_bp
     from src.user_service.routes.password_routes import password_bp
     from src.user_service.routes.admin_auth_routes import admin_auth_bp
@@ -37,6 +38,13 @@ def create_app(config_name=None):
     app.register_blueprint(admin_auth_bp)
     app.register_blueprint(loyalty_bp)
     app.register_blueprint(verification_bp)
+    
+    # Register Prize Center Service blueprints
+    from src.prize_center_service.routes.admin_routes import admin_prizes_bp
+    from src.prize_center_service.routes.public_routes import public_prizes_bp
+    
+    app.register_blueprint(admin_prizes_bp)
+    app.register_blueprint(public_prizes_bp)
     
     return app
 
