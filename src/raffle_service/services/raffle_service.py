@@ -101,15 +101,22 @@ class RaffleService:
 
     @staticmethod
     def get_raffle(raffle_id: int) -> Tuple[Optional[Raffle], Optional[str]]:
-        """Get raffle by ID"""
+        """Get raffle by ID with optimized loading"""
         try:
             logger.debug(f"Attempting to retrieve raffle with ID: {raffle_id}")
             
-            # Check if raffle exists
-            raffle = Raffle.query.get(raffle_id)
+            # Use simpler eager loading just for prize pool
+            raffle = Raffle.query.options(
+                db.joinedload(Raffle.prize_pool)
+            ).get(raffle_id)
+            
             if not raffle:
                 logger.info(f"Raffle {raffle_id} not found")
                 return None, "Raffle not found"
+                
+            # Load prize pool instances separately if needed
+            if raffle.prize_pool:
+                db.session.refresh(raffle.prize_pool)
                 
             logger.debug(f"Found raffle {raffle_id}, updating state")
                 
@@ -123,9 +130,9 @@ class RaffleService:
                 logger.error(f"Error updating raffle state: {str(state_error)}")
                 db.session.rollback()
                 # Continue even if state update fails - we still want to return the raffle
-                
+                    
             return raffle, None
-            
+                
         except SQLAlchemyError as e:
             logger.error(f"Database error in get_raffle: {str(e)}", exc_info=True)
             return None, f"Database error: {str(e)}"

@@ -65,6 +65,27 @@ class DrawExecutionSchema(Schema):
 
     draw_count = fields.Int(validate=validate.Range(min=1), missing=1)
 
+class TimeRemainingSchema(Schema):
+    """Schema for time remaining data"""
+    seconds_to_start = fields.Int(required=True)
+    seconds_to_end = fields.Int(required=True)
+    formatted_time_to_start = fields.Str(required=True)
+    formatted_time_to_end = fields.Str(required=True)
+
+class PrizePoolSummarySchema(Schema):
+    """Schema for prize pool summary"""
+    total_instances = fields.Int(required=True)
+    available_instances = fields.Dict(
+        keys=fields.Str(),
+        values=fields.Int(),
+        required=True
+    )
+    total_value = fields.Dict(
+        keys=fields.Str(),
+        values=fields.Float(),
+        required=True
+    )
+
 class RaffleResponseSchema(Schema):
     """Schema for raffle responses"""
     class Meta:
@@ -84,3 +105,5 @@ class RaffleResponseSchema(Schema):
     created_at = fields.DateTime(required=True)
     updated_at = fields.DateTime()
     is_visible = fields.Bool(required=True)
+    time_remaining = fields.Nested(TimeRemainingSchema, required=True)
+    prize_pool_summary = fields.Nested(PrizePoolSummarySchema)  # Optional as it depends on loading

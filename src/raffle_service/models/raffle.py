@@ -1,4 +1,5 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from src.prize_center_service.models import PrizeInstance
 from src.shared import db
 from enum import Enum
 from typing import Optional, Tuple
@@ -58,6 +59,12 @@ class Raffle(db.Model):
         start_time = self.start_time.replace(tzinfo=timezone.utc) if self.start_time.tzinfo is None else self.start_time
         end_time = self.end_time.replace(tzinfo=timezone.utc) if self.end_time.tzinfo is None else self.end_time
         
+        logger.debug(f"Calculating state for raffle {self.id}:")
+        logger.debug(f"Current time: {current_time}")
+        logger.debug(f"Start time: {start_time}")
+        logger.debug(f"End time: {end_time}")
+        logger.debug(f"Current status: {self.status}")
+        
         if self.status == RaffleStatus.CANCELLED.value:
             return RaffleState.ENDED
 
@@ -71,17 +78,25 @@ class Raffle(db.Model):
                 return RaffleState.PAUSED
 
         # Status is ACTIVE
-        if current_time < start_time:
-            return RaffleState.COMING_SOON
-        else:
+        # Fix: Changed from '<' to '>=' for the OPEN state condition
+        if current_time >= start_time:
+            logger.debug("Current time >= start time, setting state to OPEN")
             return RaffleState.OPEN
+        else:
+            logger.debug("Current time < start time, setting state to COMING_SOON")
+            return RaffleState.COMING_SOON
 
     def update_state(self) -> None:
         """Update state based on current time and status"""
+        previous_state = self.state
         new_state = self.calculate_state()
+        
+        logger.debug(f"State update check - Previous: {previous_state}, Calculated: {new_state}")
         
         if new_state.value != self.state:
             from src.raffle_service.models import RaffleHistory
+            
+            logger.info(f"Updating raffle {self.id} state from {self.state} to {new_state.value}")
             
             # Create history record
             history = RaffleHistory(
@@ -196,9 +211,58 @@ class Raffle(db.Model):
              self.state == RaffleState.COMING_SOON.value)
         )
 
+    def calculate_time_remaining(self) -> dict:
+        """Calculate time remaining to start and end"""
+        current_time = datetime.now(timezone.utc)
+        
+        # Ensure timestamps are timezone-aware
+        start_time = self.start_time.replace(tzinfo=timezone.utc) if self.start_time.tzinfo is None else self.start_time
+        end_time = self.end_time.replace(tzinfo=timezone.utc) if self.end_time.tzinfo is None else self.end_time
+        
+        time_to_start = (start_time - current_time).total_seconds() if current_time < start_time else 0
+        time_to_end = (end_time - current_time).total_seconds() if current_time < end_time else 0
+        
+        return {
+            'seconds_to_start': max(0, int(time_to_start)),
+            'seconds_to_end': max(0, int(time_to_end)),
+            'formatted_time_to_start': str(timedelta(seconds=max(0, int(time_to_start)))),
+            'formatted_time_to_end': str(timedelta(seconds=max(0, int(time_to_end))))
+        }
+
+    def get_prize_pool_summary(self) -> Optional[dict]:
+        """Get prize pool summary if available"""
+        if not self.prize_pool:
+            return None
+            
+        # Query instances directly instead of using relationship
+        available_instant = db.session.query(db.func.count(PrizeInstance.id)).filter(
+            PrizeInstance.pool_id == self.prize_pool_id,
+            PrizeInstance.instance_type == 'instant_win',
+            PrizeInstance.status == 'available'
+        ).scalar() or 0
+        
+        available_draw = db.session.query(db.func.count(PrizeInstance.id)).filter(
+            PrizeInstance.pool_id == self.prize_pool_id,
+            PrizeInstance.instance_type == 'draw_win',
+            PrizeInstance.status == 'available'
+        ).scalar() or 0
+        
+        return {
+            'total_instances': self.prize_pool.total_instances,
+            'available_instances': {
+                'instant_win': available_instant,
+                'draw_win': available_draw
+            },
+            'total_value': {
+                'retail': float(self.prize_pool.retail_total),
+                'cash': float(self.prize_pool.cash_total),
+                'credit': float(self.prize_pool.credit_total)
+            }
+        }
+
     def to_dict(self):
         """Convert raffle to dictionary"""
-        return {
+        base_dict = {
             'id': self.id,
             'title': self.title,
             'description': self.description,
@@ -212,5 +276,13 @@ class Raffle(db.Model):
             'state': self.state,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'is_visible': self.is_visible()
+            'is_visible': self.is_visible(),
+            'time_remaining': self.calculate_time_remaining()
         }
+
+        # Add prize pool summary if available
+        prize_pool_summary = self.get_prize_pool_summary()
+        if prize_pool_summary:
+            base_dict['prize_pool_summary'] = prize_pool_summary
+        
+        return base_dict
