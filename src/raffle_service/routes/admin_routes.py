@@ -49,6 +49,37 @@ def create_raffle():
         logger.error(f"Unexpected error: {str(e)}", exc_info=True)
         return jsonify({'error': 'Internal server error'}), 500
 
+@admin_bp.route('/<int:raffle_id>', methods=['GET'])
+@admin_required
+def get_raffle(raffle_id):
+    """Get raffle details"""
+    try:
+        logger.info(f"Admin request to get raffle {raffle_id}")
+        
+        raffle, error = RaffleService.get_raffle(raffle_id)
+        
+        if error:
+            logger.error(f"Error retrieving raffle {raffle_id}: {error}")
+            return jsonify({'error': error}), 404 if "not found" in error.lower() else 500
+            
+        if not raffle:
+            logger.error(f"No raffle returned but also no error for ID {raffle_id}")
+            return jsonify({'error': 'Raffle retrieval failed'}), 500
+            
+        # Convert to dict and verify the conversion
+        try:
+            raffle_data = raffle.to_dict()
+            logger.info(f"Successfully retrieved raffle {raffle_id}")
+            return jsonify(raffle_data), 200
+            
+        except Exception as dict_error:
+            logger.error(f"Error converting raffle to dict: {str(dict_error)}", exc_info=True)
+            return jsonify({'error': 'Error preparing raffle data'}), 500
+        
+    except Exception as e:
+        logger.error(f"Unexpected error getting raffle {raffle_id}: {str(e)}", exc_info=True)
+        return jsonify({'error': f"Unexpected error: {str(e)}"}), 500
+
 @admin_bp.route('/<int:raffle_id>', methods=['PUT'])
 @admin_required
 def update_raffle(raffle_id):
@@ -176,28 +207,46 @@ def get_raffle_stats(raffle_id):
 def list_tickets(raffle_id):
     """List all tickets for a raffle"""
     try:
+        # Get filter parameters
         status = request.args.get('status')
         user_id = request.args.get('user_id', type=int)
         revealed = request.args.get('revealed', type=bool)
+        instant_win = request.args.get('instant_win', type=bool)
+        limit = request.args.get('limit', type=int)
         
-        filters = {
+        # Build filters dictionary
+        filters = {k: v for k, v in {
             'status': status,
             'user_id': user_id,
-            'revealed': revealed
-        }
+            'revealed': revealed,
+            'instant_win_eligible': instant_win
+        }.items() if v is not None}
         
-        # Remove None values
-        filters = {k: v for k, v in filters.items() if v is not None}
+        # Get tickets with filters
+        tickets, error = TicketService.get_tickets_by_filters(
+            raffle_id=raffle_id,
+            filters=filters,
+            limit=limit
+        )
         
-        tickets, error = TicketService.get_tickets_by_filters(raffle_id, filters)
         if error:
             return jsonify({'error': error}), 400
             
-        return jsonify([t.to_dict() for t in tickets]), 200
+        # Convert tickets to dictionary format
+        tickets_data = []
+        for ticket in tickets:
+            ticket_dict = ticket.to_dict()
+            # Add any additional related data if needed
+            tickets_data.append(ticket_dict)
+            
+        return jsonify({
+            'total': len(tickets_data),
+            'tickets': tickets_data
+        }), 200
         
     except Exception as e:
         logger.error(f"Error listing tickets: {str(e)}", exc_info=True)
-        return jsonify({'error': 'Internal server error'}), 500
+        return jsonify({'error': str(e)}), 500
 
 @admin_bp.route('/tickets/<int:ticket_id>/void', methods=['POST'])
 @admin_required

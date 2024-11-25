@@ -226,3 +226,35 @@ class TicketService:
         except SQLAlchemyError as e:
             logger.error(f"Database error in get_raffle_statistics: {str(e)}")
             return None, str(e)
+        
+    @staticmethod
+    def get_tickets_by_filters(raffle_id: int, filters: dict, limit: Optional[int] = None) -> Tuple[Optional[List[Ticket]], Optional[str]]:
+        """Get tickets by filters"""
+        try:
+            # Start with base query
+            query = Ticket.query.filter_by(raffle_id=raffle_id)
+            
+            # Apply filters
+            if filters.get('status'):
+                query = query.filter_by(status=filters['status'])
+            if filters.get('user_id') is not None:
+                query = query.filter_by(user_id=filters['user_id'])
+            if filters.get('revealed') is not None:
+                query = query.filter_by(is_revealed=filters['revealed'])
+            if filters.get('instant_win_eligible') is not None:
+                query = query.filter_by(instant_win_eligible=filters['instant_win_eligible'])
+                
+            # Apply ordering first
+            query = query.order_by(Ticket.ticket_number)
+                
+            # Then apply limit if specified
+            if limit:
+                query = query.limit(limit)
+                
+            # Execute query and return results
+            tickets = query.all()
+            return tickets, None
+            
+        except SQLAlchemyError as e:
+            logger.error(f"Database error in get_tickets_by_filters: {str(e)}")
+            return None, str(e)

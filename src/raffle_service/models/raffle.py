@@ -54,20 +54,24 @@ class Raffle(db.Model):
         """Calculate current state based on time and status"""
         current_time = datetime.now(timezone.utc)
         
+        # Ensure timestamps are timezone-aware
+        start_time = self.start_time.replace(tzinfo=timezone.utc) if self.start_time.tzinfo is None else self.start_time
+        end_time = self.end_time.replace(tzinfo=timezone.utc) if self.end_time.tzinfo is None else self.end_time
+        
         if self.status == RaffleStatus.CANCELLED.value:
             return RaffleState.ENDED
 
-        if current_time >= self.end_time:
+        if current_time >= end_time:
             return RaffleState.ENDED
 
         if self.status == RaffleStatus.INACTIVE.value:
-            if current_time < self.start_time:
+            if current_time < start_time:
                 return RaffleState.DRAFT
             else:
                 return RaffleState.PAUSED
 
         # Status is ACTIVE
-        if current_time < self.start_time:
+        if current_time < start_time:
             return RaffleState.COMING_SOON
         else:
             return RaffleState.OPEN
@@ -75,6 +79,7 @@ class Raffle(db.Model):
     def update_state(self) -> None:
         """Update state based on current time and status"""
         new_state = self.calculate_state()
+        
         if new_state.value != self.state:
             from src.raffle_service.models import RaffleHistory
             

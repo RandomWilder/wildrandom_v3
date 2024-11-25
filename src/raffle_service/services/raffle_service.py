@@ -103,17 +103,35 @@ class RaffleService:
     def get_raffle(raffle_id: int) -> Tuple[Optional[Raffle], Optional[str]]:
         """Get raffle by ID"""
         try:
+            logger.debug(f"Attempting to retrieve raffle with ID: {raffle_id}")
+            
+            # Check if raffle exists
             raffle = Raffle.query.get(raffle_id)
             if not raffle:
+                logger.info(f"Raffle {raffle_id} not found")
                 return None, "Raffle not found"
                 
-            # Update state based on current time
-            raffle.update_state()
+            logger.debug(f"Found raffle {raffle_id}, updating state")
+                
+            try:
+                # Update state based on current time
+                raffle.update_state()
+                db.session.commit()
+                logger.debug(f"Successfully updated raffle {raffle_id} state to {raffle.state}")
+                    
+            except SQLAlchemyError as state_error:
+                logger.error(f"Error updating raffle state: {str(state_error)}")
+                db.session.rollback()
+                # Continue even if state update fails - we still want to return the raffle
+                
             return raffle, None
-
+            
         except SQLAlchemyError as e:
-            logger.error(f"Database error in get_raffle: {str(e)}")
-            return None, str(e)
+            logger.error(f"Database error in get_raffle: {str(e)}", exc_info=True)
+            return None, f"Database error: {str(e)}"
+        except Exception as e:
+            logger.error(f"Unexpected error in get_raffle: {str(e)}", exc_info=True)
+            return None, f"Unexpected error: {str(e)}"
 
     @staticmethod
     def list_visible_raffles() -> Tuple[Optional[List[Raffle]], Optional[str]]:
