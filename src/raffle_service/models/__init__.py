@@ -2,6 +2,7 @@ from .raffle import Raffle, RaffleStatus, RaffleState
 from .ticket import Ticket, TicketStatus
 from .raffle_draw import RaffleDraw, DrawResult
 from .raffle_history import RaffleHistory
+from .ticket_reservation import TicketReservation, ReservationStatus
 
 __all__ = [
     'Raffle',
@@ -11,5 +12,7 @@ __all__ = [
     'TicketStatus',
     'RaffleDraw',
     'DrawResult',
-    'RaffleHistory'
+    'RaffleHistory',
+    'TicketReservation',
+    'ReservationStatus'
 ]

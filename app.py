@@ -5,12 +5,15 @@ from src.shared import init_db, config
 import os
 import logging
 from logging.handlers import RotatingFileHandler
+import threading
+from src.raffle_service.tasks.cleanup_task import start_cleanup_scheduler
 
 # Set up logging
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
+logger = logging.getLogger(__name__)
 
 def create_app(config_name=None, register_blueprints=True):
     """Application factory function with optional blueprint registration"""
@@ -48,11 +51,25 @@ def create_app(config_name=None, register_blueprints=True):
         # Register Raffle Service blueprints
         from src.raffle_service.routes import register_routes
         register_routes(app)
+
+        # Register Payment Service blueprints
+        from src.payment_service.routes import register_routes as register_payment_routes
+        register_payment_routes(app)
     
     return app
 
 # Create the application instance
 app = create_app()
 
+def start_background_tasks(app):
+    """Start background tasks with application context"""
+    with app.app_context():
+        # Start cleanup task in background thread
+        cleanup_thread = threading.Thread(target=start_cleanup_scheduler)
+        cleanup_thread.daemon = True
+        cleanup_thread.start()
+        logger.info("Started reservation cleanup background task")
+
 if __name__ == '__main__':
+    start_background_tasks(app)
     app.run(debug=True)

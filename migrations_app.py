@@ -27,7 +27,15 @@ from src.raffle_service.models import (
     Raffle,
     Ticket,
     RaffleDraw,
-    RaffleHistory
+    RaffleHistory,
+    TicketReservation
+)
+
+# Payment Service Models
+from src.payment_service.models import (
+    Transaction,
+    Balance,
+    TransactionLog
 )
 
 # Create Flask app

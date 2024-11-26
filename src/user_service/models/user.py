@@ -78,6 +78,11 @@ class User(db.Model):
 
     def to_dict(self):
         """Convert user to dictionary"""
+        from src.payment_service.services import PaymentService
+        
+        # Get current balance from payment service
+        balance, _ = PaymentService.get_or_create_balance(self.id)
+        
         return {
             'id': self.id,
             'username': self.username,
@@ -87,7 +92,11 @@ class User(db.Model):
             'phone_number': self.phone_number,
             'auth_provider': self.auth_provider,
             'is_verified': self.is_verified,
-            'site_credits': self.site_credits,
+            'balance': {
+                'available': float(balance.available_amount) if balance else 0.0,
+                'pending': float(balance.pending_amount) if balance else 0.0,
+                'last_updated': balance.last_updated.isoformat() if balance and balance.last_updated else None
+            },
             'is_active': self.is_active,
             'is_admin': self.is_admin,
             'created_at': self.created_at.isoformat(),

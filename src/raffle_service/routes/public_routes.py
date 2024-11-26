@@ -1,12 +1,14 @@
 from flask import Blueprint, request, jsonify, current_app
 from src.shared.auth import token_required
+from src.raffle_service.services.reservation_service import ReservationService, TicketReservation, ReservationStatus
 from marshmallow import ValidationError
 from src.raffle_service.services import (
     RaffleService,
     TicketService,
     DrawService
 )
-from src.raffle_service.models import RaffleStatus, RaffleState, Raffle 
+from src.raffle_service.models import RaffleStatus, RaffleState, Raffle
+from src.shared.database import db
 import logging
 
 logger = logging.getLogger(__name__)
@@ -25,11 +27,18 @@ def get_raffle(raffle_id):
             logger.error(f"Raffle {raffle_id} not found")
             return jsonify({'error': 'Raffle not found'}), 404
 
+        # Force state update and commit
+        previous_state = raffle.state
+        raffle.update_state()
+        if previous_state != raffle.state:
+            logger.info(f"Raffle {raffle_id} state updated from {previous_state} to {raffle.state}")
+            db.session.commit()
+
         # Log current state
         logger.debug(f"Found raffle - Status: {raffle.status}, State: {raffle.state}")
         
         # Check visibility
-        if not raffle.is_visible:
+        if not raffle.is_visible():
             logger.error(f"Raffle {raffle_id} exists but is not visible")
             return jsonify({'error': 'Raffle not found'}), 404
 
@@ -74,6 +83,72 @@ def get_my_tickets(raffle_id):
 
     except Exception as e:
         logger.error(f"Error getting user tickets: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
+    
+@public_bp.route('/<int:raffle_id>/reserve', methods=['POST'])
+@token_required
+def reserve_tickets(raffle_id):
+    """Reserve tickets for purchase"""
+    try:
+        data = request.get_json()
+        quantity = data.get('quantity')
+        
+        if not quantity or not isinstance(quantity, int) or quantity < 1:
+            return jsonify({'error': 'Valid quantity required'}), 400
+
+        # Check user's current reservations
+        current_reservations = TicketReservation.query.filter_by(
+            user_id=request.current_user.id,
+            raffle_id=raffle_id,
+            status=ReservationStatus.PENDING
+        ).count()
+
+        if current_reservations > 0:
+            return jsonify({'error': 'You have pending reservations'}), 400
+
+        reservation, error = ReservationService.create_reservation(
+            user_id=request.current_user.id,
+            raffle_id=raffle_id,
+            quantity=quantity
+        )
+
+        if error:
+            return jsonify({'error': error}), 400
+
+        return jsonify({
+            'reservation': reservation.to_dict(),
+            'next_step': {
+                'action': 'purchase',
+                'endpoint': '/api/payments/purchase',
+                'method': 'POST',
+                'payload': {
+                    'reservation_id': reservation.id
+                }
+            }
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error reserving tickets: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+# Add reservation status endpoint
+@public_bp.route('/reservations/<int:reservation_id>', methods=['GET'])
+@token_required
+def get_reservation_status(reservation_id):
+    """Get reservation status"""
+    try:
+        reservation, error = ReservationService.get_reservation(
+            reservation_id=reservation_id,
+            user_id=request.current_user.id
+        )
+
+        if error:
+            return jsonify({'error': error}), 400
+
+        return jsonify(reservation.to_dict()), 200
+
+    except Exception as e:
+        logger.error(f"Error getting reservation: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
 @public_bp.route('/<int:raffle_id>/tickets/reveal', methods=['POST'])

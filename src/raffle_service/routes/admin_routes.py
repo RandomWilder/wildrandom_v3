@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, current_app
 from src.shared.auth import admin_required
 from marshmallow import ValidationError
 import logging
+from datetime import datetime, timezone
 from src.raffle_service.services import (
     RaffleService, 
     TicketService,
@@ -10,7 +11,8 @@ from src.raffle_service.services import (
 )
 from src.raffle_service.models import (
     RaffleStatus,
-    RaffleState
+    RaffleState,
+    Raffle
 )
 from src.raffle_service.schemas import (
     RaffleCreateSchema,
@@ -299,3 +301,34 @@ def validate_states():
 def test_route():
     """Test route to verify admin endpoint accessibility"""
     return jsonify({"message": "Admin routes accessible"}), 200
+
+@admin_bp.route('/<int:raffle_id>/debug-state', methods=['GET'])
+@admin_required
+def debug_raffle_state(raffle_id):
+    """Debug raffle state calculation"""
+    try:
+        raffle = Raffle.query.get(raffle_id)
+        if not raffle:
+            return jsonify({'error': 'Raffle not found'}), 404
+
+        current_time = datetime.now(timezone.utc)
+        start_time = raffle.start_time.replace(tzinfo=timezone.utc) if raffle.start_time.tzinfo is None else raffle.start_time
+        end_time = raffle.end_time.replace(tzinfo=timezone.utc) if raffle.end_time.tzinfo is None else raffle.end_time
+
+        return jsonify({
+            'current_time': current_time.isoformat(),
+            'start_time': start_time.isoformat(),
+            'end_time': end_time.isoformat(),
+            'current_state': raffle.state,
+            'status': raffle.status,
+            'time_checks': {
+                'current_vs_start': str(current_time - start_time),
+                'current_vs_end': str(current_time - end_time),
+                'is_past_start': current_time >= start_time,
+                'is_before_end': current_time < end_time
+            }
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error in debug state: {str(e)}")
+        return jsonify({'error': str(e)}), 500
