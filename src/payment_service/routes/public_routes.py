@@ -3,6 +3,7 @@ from src.shared.auth import token_required
 from src.payment_service.services import PaymentService
 from marshmallow import ValidationError
 import logging
+from src.payment_service.models import Transaction
 
 logger = logging.getLogger(__name__)
 
@@ -64,19 +65,27 @@ def get_transactions():
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 20, type=int)
         
-        transactions, total = PaymentService.get_user_transactions(
-            user_id=request.current_user.id,
-            page=page,
-            per_page=per_page
+        # Add error logging
+        logger.debug(f"Getting transactions for user {request.current_user.id}")
+        
+        transactions = Transaction.query.filter_by(
+            user_id=request.current_user.id
+        ).order_by(
+            Transaction.created_at.desc()
+        ).paginate(
+            page=page, 
+            per_page=per_page,
+            error_out=False
         )
         
         return jsonify({
-            'transactions': [t.to_dict() for t in transactions],
-            'total': total,
+            'transactions': [t.to_dict() for t in transactions.items],
+            'total': transactions.total,
             'page': page,
-            'per_page': per_page
+            'per_page': per_page,
+            'pages': transactions.pages
         }), 200
         
     except Exception as e:
-        logger.error(f"Error getting transactions: {str(e)}")
+        logger.error(f"Error getting transactions: {str(e)}", exc_info=True)
         return jsonify({'error': 'Internal server error'}), 500

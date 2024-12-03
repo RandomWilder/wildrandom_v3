@@ -1,55 +1,118 @@
+"""Raffle Domain Model
+
+This module implements the core raffle functionality with comprehensive state management,
+status tracking, and prize pool integration. It follows domain-driven design principles
+and ensures proper encapsulation of business rules.
+"""
+
 from datetime import datetime, timezone, timedelta
-from src.prize_center_service.models import PrizeInstance
+from decimal import Decimal
+from typing import Optional, Tuple, Dict, Any
 from src.shared import db
+from src.prize_center_service.models import PrizeInstance
 from enum import Enum
-from typing import Optional, Tuple
 import logging
 
 logger = logging.getLogger(__name__)
 
 class RaffleStatus(str, Enum):
-    """Raffle administrative statuses"""
+    """Raffle administrative status states with string value support"""
     INACTIVE = 'inactive'
     ACTIVE = 'active'
     CANCELLED = 'cancelled'
 
+    def __str__(self) -> str:
+        return self.value
+
 class RaffleState(str, Enum):
-    """Raffle operational states"""
+    """Raffle operational states with automatic progression"""
     DRAFT = 'draft'
     COMING_SOON = 'coming_soon'
     OPEN = 'open'
     PAUSED = 'paused'
     ENDED = 'ended'
 
+    def __str__(self) -> str:
+        return self.value
+
 class Raffle(db.Model):
-    """Core raffle model with enhanced status/state management"""
+    """
+    Core raffle model with enhanced status/state management
+    
+    This model implements comprehensive raffle lifecycle management including:
+    - Status and state transitions
+    - Prize pool integration
+    - Time-based state calculations
+    - Audit trail generation
+    """
     __tablename__ = 'raffles'
     __table_args__ = (
         db.CheckConstraint('start_time < end_time', name='valid_dates'),
         {'extend_existing': True}
     )
 
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.Text)
-    prize_pool_id = db.Column(db.Integer, db.ForeignKey('prize_pools.id'), nullable=False)
-    total_tickets = db.Column(db.Integer, nullable=False)
-    ticket_price = db.Column(db.Numeric(10, 2), nullable=False)
-    max_tickets_per_user = db.Column(db.Integer, nullable=False)
-    start_time = db.Column(db.DateTime, nullable=False)
-    end_time = db.Column(db.DateTime, nullable=False)
-    status = db.Column(db.String(20), nullable=False, default=RaffleStatus.INACTIVE.value)
-    state = db.Column(db.String(20), nullable=False, default=RaffleState.DRAFT.value)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = db.Column(db.DateTime, onupdate=lambda: datetime.now(timezone.utc))
-    created_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    # Identity and basic info
+    id: int = db.Column(db.Integer, primary_key=True)
+    title: str = db.Column(db.String(100), nullable=False)
+    description: Optional[str] = db.Column(db.Text)
 
-    # Relationships
-    created_by = db.relationship('User', backref=db.backref('raffles_created', lazy=True))
-    prize_pool = db.relationship('PrizePool', backref=db.backref('raffles', lazy=True))
+    # Prize pool relationship - single definition
+    prize_pool_id: int = db.Column(db.Integer, db.ForeignKey('prize_pools.id'), nullable=False)
+    prize_pool = db.relationship(
+        'PrizePool',
+        foreign_keys=[prize_pool_id],
+        back_populates='raffles',
+        primaryjoin="Raffle.prize_pool_id == PrizePool.id"
+    )
+
+    # Configuration
+    total_tickets: int = db.Column(db.Integer, nullable=False)
+    ticket_price: Decimal = db.Column(db.Numeric(10, 2), nullable=False)
+    max_tickets_per_user: int = db.Column(db.Integer, nullable=False)
+
+    # Timing
+    start_time: datetime = db.Column(db.DateTime, nullable=False)
+    end_time: datetime = db.Column(db.DateTime, nullable=False)
+
+    # State management
+    status: str = db.Column(db.String(20), nullable=False, default=RaffleStatus.INACTIVE.value)
+    state: str = db.Column(db.String(20), nullable=False, default=RaffleState.DRAFT.value)
+    state_locked: bool = db.Column(db.Boolean, default=False)
+    state_locked_reason: Optional[str] = db.Column(db.String(255))
+    state_locked_at: Optional[datetime] = db.Column(db.DateTime)
+
+    # Metadata
+    created_at: datetime = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at: Optional[datetime] = db.Column(
+        db.DateTime,
+        onupdate=lambda: datetime.now(timezone.utc)
+    )
+    created_by_id: int = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    # Additional relationships
+    created_by = db.relationship(
+        'User',
+        backref=db.backref('raffles_created', lazy=True)
+    )
 
     def __repr__(self):
         return f'<Raffle {self.id}: {self.title} ({self.status}/{self.state})>'
+
+    def _create_history_record(self, previous_status: str, new_status: str, 
+                             previous_state: str, new_state: str, reason: str) -> None:
+        """Internal method to create history record"""
+        # Import here to avoid circular dependency
+        from src.raffle_service.models.raffle_history import RaffleHistory
+        
+        history = RaffleHistory(
+            raffle_id=self.id,
+            previous_status=previous_status,
+            new_status=new_status,
+            previous_state=previous_state,
+            new_state=new_state,
+            reason=reason
+        )
+        db.session.add(history)
 
     def calculate_state(self) -> RaffleState:
         """Calculate current state based on time and status"""
@@ -78,7 +141,6 @@ class Raffle(db.Model):
                 return RaffleState.PAUSED
 
         # Status is ACTIVE
-        # Fix: Changed from '<' to '>=' for the OPEN state condition
         if current_time >= start_time:
             logger.debug("Current time >= start time, setting state to OPEN")
             return RaffleState.OPEN
@@ -91,25 +153,14 @@ class Raffle(db.Model):
         previous_state = self.state
         new_state = self.calculate_state()
         
-        logger.debug(f"State update check - Previous: {previous_state}, Calculated: {new_state}")
-        
         if new_state.value != self.state:
-            from src.raffle_service.models import RaffleHistory
-            
-            logger.info(f"Updating raffle {self.id} state from {self.state} to {new_state.value}")
-            
-            # Create history record
-            history = RaffleHistory(
-                raffle_id=self.id,
+            self._create_history_record(
                 previous_status=self.status,
                 new_status=self.status,
-                previous_state=self.state,
+                previous_state=previous_state,
                 new_state=new_state.value,
                 reason="Automatic state update"
             )
-            db.session.add(history)
-            
-            # Update state
             self.state = new_state.value
             self.updated_at = datetime.now(timezone.utc)
 
@@ -136,23 +187,21 @@ class Raffle(db.Model):
         if not can_activate:
             return False, error
 
-        from src.raffle_service.models import RaffleHistory
+        previous_status = self.status
+        previous_state = self.state
         
-        # Create history record
-        history = RaffleHistory(
-            raffle_id=self.id,
-            previous_status=self.status,
-            new_status=RaffleStatus.ACTIVE.value,
-            previous_state=self.state,
-            new_state=self.calculate_state().value,
+        self.status = RaffleStatus.ACTIVE.value
+        new_state = self.calculate_state()
+        
+        self._create_history_record(
+            previous_status=previous_status,
+            new_status=self.status,
+            previous_state=previous_state,
+            new_state=new_state.value,
             reason="Manual activation"
         )
-        db.session.add(history)
-
-        # Update status
-        self.status = RaffleStatus.ACTIVE.value
-        self.update_state()
         
+        self.state = new_state.value
         return True, None
 
     def deactivate(self) -> Tuple[bool, Optional[str]]:
@@ -160,23 +209,21 @@ class Raffle(db.Model):
         if self.status == RaffleStatus.CANCELLED.value:
             return False, "Cannot deactivate cancelled raffle"
 
-        from src.raffle_service.models import RaffleHistory
+        previous_status = self.status
+        previous_state = self.state
         
-        # Create history record
-        history = RaffleHistory(
-            raffle_id=self.id,
-            previous_status=self.status,
-            new_status=RaffleStatus.INACTIVE.value,
-            previous_state=self.state,
-            new_state=self.calculate_state().value,
+        self.status = RaffleStatus.INACTIVE.value
+        new_state = self.calculate_state()
+        
+        self._create_history_record(
+            previous_status=previous_status,
+            new_status=self.status,
+            previous_state=previous_state,
+            new_state=new_state.value,
             reason="Manual deactivation"
         )
-        db.session.add(history)
-
-        # Update status
-        self.status = RaffleStatus.INACTIVE.value
-        self.update_state()
         
+        self.state = new_state.value
         return True, None
 
     def cancel(self) -> Tuple[bool, Optional[str]]:
@@ -184,22 +231,19 @@ class Raffle(db.Model):
         if self.status != RaffleStatus.INACTIVE.value:
             return False, "Raffle must be inactive to cancel"
 
-        from src.raffle_service.models import RaffleHistory
+        previous_status = self.status
+        previous_state = self.state
         
-        # Create history record
-        history = RaffleHistory(
-            raffle_id=self.id,
-            previous_status=self.status,
-            new_status=RaffleStatus.CANCELLED.value,
-            previous_state=self.state,
-            new_state=RaffleState.ENDED.value,
-            reason="Manual cancellation"
-        )
-        db.session.add(history)
-
-        # Update status and state
         self.status = RaffleStatus.CANCELLED.value
         self.state = RaffleState.ENDED.value
+        
+        self._create_history_record(
+            previous_status=previous_status,
+            new_status=self.status,
+            previous_state=previous_state,
+            new_state=self.state,
+            reason="Manual cancellation"
+        )
         
         return True, None
 
@@ -260,7 +304,7 @@ class Raffle(db.Model):
             }
         }
 
-    def to_dict(self):
+    def to_dict(self) -> Dict:
         """Convert raffle to dictionary"""
         base_dict = {
             'id': self.id,

@@ -6,23 +6,39 @@ from .prize_instance import (
     PrizeInstance, 
     InstantWinInstance, 
     DrawWinInstance,
-    InstanceStatus,
     DrawWinDistributionType
 )
+from .prize_states import (
+    InstanceStatus,
+    PrizeStateConfig,
+    prize_states
+)
 
-# Add direct import to make the enhanced functionality available
+# Enhanced functionality exports
 EnhancedPrizePool = PrizePool
 
 __all__ = [
+    # Prize Template related
     'PrizeTemplate',
     'PrizeType',
     'PrizeTier',
+    
+    # Prize Pool related
     'PrizePool',
-    'EnhancedPrizePool',  # Export the enhanced version
+    'EnhancedPrizePool',
     'PoolStatus',
+    
+    # Prize Instance related
     'PrizeInstance',
     'InstantWinInstance',
     'DrawWinInstance',
+    'DrawWinDistributionType',
+    
+    # State Management
     'InstanceStatus',
-    'DrawWinDistributionType'
+    'PrizeStateConfig',
+    'prize_states'
 ]
+
+# Version information
+__version__ = '1.0.0'

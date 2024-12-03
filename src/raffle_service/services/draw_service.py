@@ -1,119 +1,157 @@
-from typing import Optional, Tuple, List, Dict
-from datetime import datetime, timezone
+"""
+Draw Service Module
+
+Handles raffle draw execution and winner selection with comprehensive state management
+and prize pool integration. Implements both immediate and scheduled draw capabilities
+while maintaining data consistency and proper error handling.
+"""
+
+from typing import Optional, Tuple, List, Dict, Any
+from datetime import datetime, timezone, timedelta
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import func, and_, not_
+import random
 from src.shared import db
 from src.raffle_service.models import (
-    Ticket, TicketStatus,
     Raffle, RaffleStatus, RaffleState,
-    RaffleDraw, DrawResult
+    RaffleDraw, DrawResult, Ticket, TicketStatus
 )
-from src.prize_center_service.models import EnhancedPrizePool as PrizePool
+from src.prize_center_service.models import (
+    PrizeInstance, PrizePool, DrawWinInstance
+)
+from src.taskscheduler_service import task_service, TaskType
 import logging
+from functools import wraps
 
 logger = logging.getLogger(__name__)
 
-class DrawService:
-    @staticmethod
-    def execute_draw(raffle_id: int, admin_id: int) -> Tuple[Optional[RaffleDraw], Optional[str]]:
-        """Execute a single prize draw for a raffle"""
-        try:
-            # Verify raffle state
-            raffle = Raffle.query.get(raffle_id)
-            if not raffle:
-                return None, "Raffle not found"
-                
-            if raffle.state != RaffleState.ENDED.value:
-                return None, "Raffle must be ended to execute draw"
+def validate_raffle_state(func):
+    """Decorator to validate raffle state before draw execution"""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        raffle_id = kwargs.get('raffle_id')
+        raffle = Raffle.query.get(raffle_id)
+        
+        if not raffle:
+            logger.error(f"Raffle {raffle_id} not found")
+            return None, "Raffle not found"
+            
+        if raffle.state != RaffleState.ENDED.value:
+            logger.error(f"Invalid raffle state for draw: {raffle.state}")
+            return None, f"Raffle must be in ENDED state (current: {raffle.state})"
+        
+        return func(*args, **kwargs)
+    return wrapper
 
-            # Get prize pool to check remaining draw_win instances
+class DrawService:
+    """Service for managing raffle draws with automated prize pool integration"""
+
+    @staticmethod
+    @validate_raffle_state
+    def execute_raffle_draws(raffle_id: int, admin_id: Optional[int] = None) -> Tuple[Optional[List[RaffleDraw]], Optional[str]]:
+        """
+        Execute all draws for a raffle based on prize pool configuration.
+        
+        Args:
+            raffle_id: ID of raffle to process draws for
+            admin_id: Optional ID of admin executing draws
+            
+        Returns:
+            Tuple containing list of draws and optional error message
+        """
+        try:
+            logger.info(f"Starting draw execution for raffle {raffle_id}")
+            
+            raffle = Raffle.query.get(raffle_id)
             prize_pool = PrizePool.query.get(raffle.prize_pool_id)
+            
             if not prize_pool:
                 return None, "Prize pool not found"
-
-            # Check if we've already done all draws
-            existing_draws = RaffleDraw.query.filter_by(raffle_id=raffle_id).count()
-            if existing_draws >= prize_pool.draw_win_count:
-                return None, "All draws have been completed"
-
-            # Get all eligible tickets (excluding previous winners)
-            previous_winners = db.session.query(RaffleDraw.ticket_id).filter_by(raffle_id=raffle_id)
-            eligible_tickets = Ticket.query.filter(
-                Ticket.raffle_id == raffle_id,
-                not_(Ticket.id.in_(previous_winners))
+            
+            # Get available draw win instances
+            available_instances = DrawWinInstance.query.filter_by(
+                pool_id=prize_pool.id,
+                status='available'
+            ).all()
+            
+            if not available_instances:
+                return None, "No draw win prizes available"
+            
+            logger.info(f"Found {len(available_instances)} available draw win prizes")
+            
+            # Get eligible tickets
+            eligible_tickets = Ticket.query.filter_by(
+                raffle_id=raffle_id,
+                status=TicketStatus.REVEALED.value
             ).all()
             
             if not eligible_tickets:
                 return None, "No eligible tickets for draw"
-
-            # Randomly select winner
-            winning_ticket = DrawService._select_random_winner(eligible_tickets)
-            if not winning_ticket:
-                return None, "Failed to select winner"
-
-            # Create draw record
-            draw = RaffleDraw(
-                raffle_id=raffle_id,
-                ticket_id=winning_ticket.id,
-                draw_sequence=existing_draws + 1,
-                prize_instance_id=prize_pool.get_next_draw_instance().id
-            )
+                
+            logger.info(f"Found {len(eligible_tickets)} eligible tickets")
             
-            db.session.add(draw)
-            db.session.flush()  # Get draw ID
+            draws = []
+            previous_winners = set()  # Track previous winning tickets
             
-            # Calculate result based on ticket ownership
-            draw.calculate_result()
-            
-            # Process draw results
-            draw.process_draw()
+            for i, instance in enumerate(available_instances, 1):
+                # Select winning ticket
+                remaining_tickets = [t for t in eligible_tickets if t.ticket_id not in previous_winners]
+                if not remaining_tickets:
+                    logger.warning("No more eligible tickets for remaining prizes")
+                    break
+                    
+                winning_ticket = random.choice(remaining_tickets)
+                logger.info(f"Selected winning ticket {winning_ticket.ticket_id} for draw {i}")
+                
+                # Create draw record
+                draw = RaffleDraw(
+                    raffle_id=raffle_id,
+                    ticket_id=winning_ticket.ticket_id,  # Using string ticket_id instead of ID
+                    draw_sequence=i,
+                    prize_instance_id=instance.id,
+                    result=DrawResult.WINNER.value if winning_ticket.user_id else DrawResult.NO_WINNER.value,
+                    drawn_at=datetime.now(timezone.utc)
+                )
+                
+                if draw.result == DrawResult.WINNER.value:
+                    # Update instance state
+                    instance.status = 'discovered'
+                    instance.discovering_ticket_id = winning_ticket.ticket_id
+                    instance.discovery_time = datetime.now(timezone.utc)
+                    previous_winners.add(winning_ticket.ticket_id)
+                
+                db.session.add(draw)
+                draws.append(draw)
+                
+                logger.info(
+                    f"Draw {i} completed - "
+                    f"Ticket: {winning_ticket.ticket_id}, "
+                    f"Result: {draw.result}, "
+                    f"Prize: {instance.instance_id}"
+                )
             
             db.session.commit()
-            return draw, None
-            
-        except SQLAlchemyError as e:
-            db.session.rollback()
-            logger.error(f"Database error in execute_draw: {str(e)}")
-            return None, str(e)
-
-    @staticmethod
-    def execute_multiple_draws(raffle_id: int, admin_id: int, number_of_draws: int) -> Tuple[Optional[List[RaffleDraw]], Optional[str]]:
-        """Execute multiple prize draws for a raffle"""
-        try:
-            draws = []
-            for _ in range(number_of_draws):
-                draw, error = DrawService.execute_draw(raffle_id, admin_id)
-                if error:
-                    if "All draws have been completed" in error:
-                        break
-                    return None, error
-                draws.append(draw)
-            
+            logger.info(f"Successfully completed {len(draws)} draws")
             return draws, None
             
         except SQLAlchemyError as e:
             db.session.rollback()
-            logger.error(f"Database error in execute_multiple_draws: {str(e)}")
+            logger.error(f"Database error in draw execution: {str(e)}", exc_info=True)
+            return None, f"Database error: {str(e)}"
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error executing draws: {str(e)}", exc_info=True)
             return None, str(e)
 
     @staticmethod
-    def _select_random_winner(tickets: List[Ticket]) -> Optional[Ticket]:
-        """Randomly select a winning ticket"""
-        if not tickets:
-            return None
-            
-        random_index = int(func.random() * len(tickets))
-        return tickets[random_index]
-
-    @staticmethod
-    def get_raffle_winners(raffle_id: int) -> Tuple[Optional[List[Dict]], Optional[str]]:
-        """Get all winners for a raffle"""
+    def get_raffle_winners(raffle_id: int) -> Tuple[Optional[List[Dict[str, Any]]], Optional[str]]:
+        """Get all winners for a raffle with comprehensive details"""
         try:
             draws = RaffleDraw.query.filter_by(
                 raffle_id=raffle_id,
                 result=DrawResult.WINNER.value
             ).order_by(RaffleDraw.draw_sequence).all()
-
+            
             winners = []
             for draw in draws:
                 winner_info = draw.to_dict()
@@ -124,28 +162,33 @@ class DrawService:
                         'reveal_time': draw.ticket.reveal_time.isoformat() if draw.ticket.reveal_time else None
                     },
                     'prize_details': {
-                        'instance_id': draw.prize_instance_id,
+                        'instance_id': draw.prize_instance.instance_id,
                         'type': draw.prize_instance.instance_type,
-                        'status': draw.prize_instance.status
+                        'status': draw.prize_instance.status,
+                        'value': {
+                            'retail': float(draw.prize_instance.retail_value),
+                            'cash': float(draw.prize_instance.cash_value),
+                            'credit': float(draw.prize_instance.credit_value)
+                        }
                     } if draw.prize_instance else None
                 })
                 winners.append(winner_info)
-
+            
             return winners, None
-
-        except SQLAlchemyError as e:
-            logger.error(f"Database error in get_raffle_winners: {str(e)}")
+            
+        except Exception as e:
+            logger.error(f"Error getting raffle winners: {str(e)}", exc_info=True)
             return None, str(e)
 
     @staticmethod
-    def get_user_wins(user_id: int) -> Tuple[Optional[List[Dict]], Optional[str]]:
+    def get_user_wins(user_id: int) -> Tuple[Optional[List[Dict[str, Any]]], Optional[str]]:
         """Get all winning draws for a user"""
         try:
             draws = RaffleDraw.query.join(RaffleDraw.ticket).filter(
                 RaffleDraw.result == DrawResult.WINNER.value,
                 Ticket.user_id == user_id
             ).order_by(RaffleDraw.drawn_at.desc()).all()
-
+            
             user_wins = []
             for draw in draws:
                 win_info = draw.to_dict()
@@ -156,48 +199,38 @@ class DrawService:
                         'ticket_price': float(draw.raffle.ticket_price)
                     },
                     'prize_details': {
-                        'instance_id': draw.prize_instance_id,
+                        'instance_id': draw.prize_instance.instance_id,
                         'type': draw.prize_instance.instance_type,
                         'status': draw.prize_instance.status
                     } if draw.prize_instance else None
                 })
                 user_wins.append(win_info)
-
+            
             return user_wins, None
-
-        except SQLAlchemyError as e:
-            logger.error(f"Database error in get_user_wins: {str(e)}")
+            
+        except Exception as e:
+            logger.error(f"Error getting user wins: {str(e)}", exc_info=True)
             return None, str(e)
 
     @staticmethod
-    def verify_draw_result(draw_id: int) -> Tuple[Optional[bool], Optional[str]]:
-        """Verify a draw result is valid"""
+    def schedule_draw(raffle: Raffle) -> Tuple[bool, Optional[str]]:
+        """Schedule draw execution for when raffle ends"""
         try:
-            draw = RaffleDraw.query.get(draw_id)
-            if not draw:
-                return None, "Draw not found"
-
-            # Verify draw sequence
-            sequence_valid = RaffleDraw.query.filter(
-                RaffleDraw.raffle_id == draw.raffle_id,
-                RaffleDraw.draw_sequence < draw.draw_sequence
-            ).count() == draw.draw_sequence - 1
-
-            # Verify ticket wasn't drawn before
-            ticket_unique = RaffleDraw.query.filter(
-                RaffleDraw.raffle_id == draw.raffle_id,
-                RaffleDraw.ticket_id == draw.ticket_id,
-                RaffleDraw.id != draw.id
-            ).count() == 0
-
-            # Verify result matches ticket ownership
-            result_valid = (
-                (draw.result == DrawResult.WINNER.value and draw.ticket.user_id is not None) or
-                (draw.result == DrawResult.NO_WINNER.value and draw.ticket.user_id is None)
-            )
-
-            return all([sequence_valid, ticket_unique, result_valid]), None
-
-        except SQLAlchemyError as e:
-            logger.error(f"Database error in verify_draw_result: {str(e)}")
-            return None, str(e)
+            execution_time = raffle.end_time + timedelta(minutes=1)
+            
+            task_service.create_task({
+                'task_type': TaskType.DRAW_EXECUTION.value,
+                'target_id': raffle.id,
+                'execution_time': execution_time,
+                'params': {
+                    'raffle_id': raffle.id,
+                    'scheduled_at': datetime.now(timezone.utc).isoformat()
+                }
+            })
+            
+            logger.info(f"Draw scheduled for raffle {raffle.id} at {execution_time}")
+            return True, None
+            
+        except Exception as e:
+            logger.error(f"Failed to schedule draw for raffle {raffle.id}: {str(e)}")
+            return False, str(e)

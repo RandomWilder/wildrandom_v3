@@ -173,16 +173,41 @@ class ReservationService:
     def cleanup_expired_reservations() -> None:
         """Cleanup all expired reservations"""
         try:
+            # Get expired reservations
+            now = datetime.now(timezone.utc)
             expired_reservations = TicketReservation.query.filter(
                 TicketReservation.status == ReservationStatus.PENDING,
-                TicketReservation.expires_at <= datetime.now(timezone.utc)
+                TicketReservation.expires_at <= now
             ).all()
 
+            logger.info(f"Found {len(expired_reservations)} expired reservations")
+            
+            # Handle each reservation
             for reservation in expired_reservations:
-                ReservationService.handle_expired_reservation(reservation)
+                logger.info(f"Processing reservation {reservation.id}")
+                
+                # Release the tickets
+                updated = Ticket.query.filter(
+                    Ticket.raffle_id == reservation.raffle_id,
+                    Ticket.ticket_id.in_(reservation.ticket_ids),
+                    Ticket.status == TicketStatus.RESERVED.value,
+                    Ticket.user_id == reservation.user_id
+                ).update({
+                    'status': TicketStatus.AVAILABLE.value,
+                    'user_id': None
+                }, synchronize_session=False)
+                
+                logger.info(f"Released {updated} tickets from reservation {reservation.id}")
 
-        except SQLAlchemyError as e:
-            logger.error(f"Error cleaning up reservations: {str(e)}")
+                # Update reservation status
+                reservation.status = ReservationStatus.EXPIRED
+                
+            db.session.commit()
+            logger.info("Completed reservation cleanup")
+            
+        except Exception as e:
+            logger.error(f"Error in cleanup_expired_reservations: {str(e)}")
+            db.session.rollback()
 
     @staticmethod
     def cancel_reservation(
@@ -218,3 +243,29 @@ class ReservationService:
             db.session.rollback()
             logger.error(f"Database error in cancel_reservation: {str(e)}")
             return False, str(e)
+        
+    @staticmethod
+    def cleanup_orphaned_tickets() -> None:
+        """Cleanup tickets that are in reserved status but have no active reservation"""
+        try:
+            logger.info("Starting cleanup of orphaned reserved tickets")
+
+            # Reset tickets that are in reserved status with no active reservation
+            updated = Ticket.query.filter(
+                Ticket.status == TicketStatus.RESERVED.value,
+                ~Ticket.ticket_id.in_(  # Not in any active reservation
+                    db.session.query(TicketReservation.ticket_ids).filter(
+                        TicketReservation.status == ReservationStatus.PENDING
+                    )
+                )
+            ).update({
+                'status': TicketStatus.AVAILABLE.value,
+                'user_id': None
+            }, synchronize_session=False)
+
+            db.session.commit()
+            logger.info(f"Released {updated} orphaned reserved tickets")
+
+        except Exception as e:
+            logger.error(f"Error cleaning up orphaned tickets: {str(e)}")
+            db.session.rollback()

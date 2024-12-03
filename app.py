@@ -1,4 +1,7 @@
-# app.py
+"""
+Main application factory module.
+Handles initialization and configuration of all services including TaskScheduler.
+"""
 
 from flask import Flask
 from src.shared import init_db, config
@@ -6,7 +9,7 @@ import os
 import logging
 from logging.handlers import RotatingFileHandler
 import threading
-from src.raffle_service.tasks.cleanup_task import start_cleanup_scheduler
+from src.taskscheduler_service import init_task_scheduler
 
 # Set up logging
 logging.basicConfig(
@@ -15,18 +18,30 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def create_app(config_name=None, register_blueprints=True):
-    """Application factory function with optional blueprint registration"""
-    app = Flask(__name__)
+def create_app(config_name: str | None = None, register_blueprints: bool = True) -> Flask:
+    """
+    Application factory function with comprehensive service initialization.
     
+    Args:
+        config_name: Configuration environment to use (development/production/testing)
+        register_blueprints: Whether to register service blueprints
+        
+    Returns:
+        Flask: Configured Flask application instance
+    """
+    app = Flask(__name__)
+
     # Load configuration
     if config_name is None:
         config_name = os.getenv('FLASK_ENV', 'development')
     app.config.from_object(config[config_name])
-    
+
     # Initialize extensions
     init_db(app)
     
+    # Initialize TaskScheduler service
+    init_task_scheduler(app)
+
     if register_blueprints:
         # Register User Service blueprints
         from src.user_service.routes.user_routes import user_bp
@@ -40,14 +55,14 @@ def create_app(config_name=None, register_blueprints=True):
         app.register_blueprint(admin_auth_bp)
         app.register_blueprint(loyalty_bp)
         app.register_blueprint(verification_bp)
-        
+
         # Register Prize Center Service blueprints
         from src.prize_center_service.routes.admin_routes import admin_prizes_bp
         from src.prize_center_service.routes.public_routes import public_prizes_bp
         
         app.register_blueprint(admin_prizes_bp)
         app.register_blueprint(public_prizes_bp)
-        
+
         # Register Raffle Service blueprints
         from src.raffle_service.routes import register_routes
         register_routes(app)
@@ -55,20 +70,28 @@ def create_app(config_name=None, register_blueprints=True):
         # Register Payment Service blueprints
         from src.payment_service.routes import register_routes as register_payment_routes
         register_payment_routes(app)
-    
+
+        logger.info("All service blueprints registered successfully")
+
     return app
 
-# Create the application instance
-app = create_app()
-
-def start_background_tasks(app):
-    """Start background tasks with application context"""
+def start_background_tasks(app: Flask) -> None:
+    """
+    Start background tasks with application context.
+    
+    Args:
+        app: Flask application instance
+    """
     with app.app_context():
         # Start cleanup task in background thread
+        from src.raffle_service.tasks.cleanup_task import start_cleanup_scheduler
         cleanup_thread = threading.Thread(target=start_cleanup_scheduler)
         cleanup_thread.daemon = True
         cleanup_thread.start()
         logger.info("Started reservation cleanup background task")
+
+# Create the application instance
+app = create_app()
 
 if __name__ == '__main__':
     start_background_tasks(app)

@@ -1,3 +1,8 @@
+"""
+Routes initialization module.
+Handles blueprint registration and route configuration.
+"""
+
 from .admin_routes import admin_bp
 from .public_routes import public_bp
 

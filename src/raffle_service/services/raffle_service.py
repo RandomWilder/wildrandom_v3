@@ -1,3 +1,17 @@
+"""
+Raffle Service Module
+
+Provides comprehensive management of raffles including:
+- Creation and configuration
+- State and status management
+- Ticket generation and management 
+- Statistics and reporting
+- Automated state transitions via TaskScheduler integration
+
+The service handles both manual and automated operations while maintaining
+data consistency and proper state management throughout the raffle lifecycle.
+"""
+
 from typing import Optional, Tuple, List, Dict, Any
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.exc import SQLAlchemyError
@@ -10,13 +24,28 @@ from src.raffle_service.models import (
     RaffleHistory
 )
 from src.prize_center_service.models import EnhancedPrizePool as PrizePool, PoolStatus
+from src.taskscheduler_service import task_service, TaskType
 
 logger = logging.getLogger(__name__)
 
 class RaffleService:
+    """
+    Core service for raffle management with integrated scheduling capabilities.
+    Handles both manual operations and automated state transitions.
+    """
+
     @staticmethod
     def create_raffle(data: dict, admin_id: int) -> Tuple[Optional[Dict], Optional[str]]:
-        """Create a new raffle"""
+        """
+        Create a new raffle with optional automated state transition scheduling.
+        
+        Args:
+            data: Raffle configuration including timing and prize details
+            admin_id: ID of admin creating the raffle
+            
+        Returns:
+            Tuple containing created raffle data or error message
+        """
         try:
             # Validate prize pool
             prize_pool = PrizePool.query.get(data['prize_pool_id'])
@@ -27,17 +56,17 @@ class RaffleService:
 
             # Create raffle
             raffle = Raffle(
-            title=data['title'],
-            description=data.get('description'),
-            prize_pool_id=prize_pool.id,
-            total_tickets=data['total_tickets'],
-            ticket_price=data['ticket_price'],
-            max_tickets_per_user=data['max_tickets_per_user'],
-            start_time=data['start_time'],
-            end_time=data['end_time'],
-            status=RaffleStatus.INACTIVE.value,
-            state=RaffleState.DRAFT.value,
-            created_by_id=admin_id
+                title=data['title'],
+                description=data.get('description'),
+                prize_pool_id=prize_pool.id,
+                total_tickets=data['total_tickets'],
+                ticket_price=data['ticket_price'],
+                max_tickets_per_user=data['max_tickets_per_user'],
+                start_time=data['start_time'],
+                end_time=data['end_time'],
+                status=RaffleStatus.INACTIVE.value,
+                state=RaffleState.DRAFT.value,
+                created_by_id=admin_id
             )
             
             db.session.add(raffle)
@@ -45,16 +74,23 @@ class RaffleService:
 
             # Generate tickets
             tickets_created = RaffleService._generate_tickets(
-            raffle_id=raffle.id,
-            total_tickets=raffle.total_tickets,
-            instant_win_count=prize_pool.instant_win_instances
-        )
+                raffle_id=raffle.id,
+                total_tickets=raffle.total_tickets,
+                instant_win_count=prize_pool.instant_win_instances
+            )
             
             if not tickets_created:
                 db.session.rollback()
                 return None, "Failed to generate tickets"
 
+            # Schedule state transitions if raffle is active
+            if data.get('status') == RaffleStatus.ACTIVE.value:
+                RaffleService._schedule_state_transitions(raffle)
+                raffle.status = RaffleStatus.ACTIVE.value
+                raffle.update_state()
+
             db.session.commit()
+            logger.info(f"Created raffle {raffle.id} with scheduled transitions")
             return raffle.to_dict(), None
 
         except SQLAlchemyError as e:
@@ -105,7 +141,6 @@ class RaffleService:
         try:
             logger.debug(f"Attempting to retrieve raffle with ID: {raffle_id}")
             
-            # Use simpler eager loading just for prize pool
             raffle = Raffle.query.options(
                 db.joinedload(Raffle.prize_pool)
             ).get(raffle_id)
@@ -114,14 +149,12 @@ class RaffleService:
                 logger.info(f"Raffle {raffle_id} not found")
                 return None, "Raffle not found"
                 
-            # Load prize pool instances separately if needed
             if raffle.prize_pool:
                 db.session.refresh(raffle.prize_pool)
                 
             logger.debug(f"Found raffle {raffle_id}, updating state")
                 
             try:
-                # Update state based on current time
                 raffle.update_state()
                 db.session.commit()
                 logger.debug(f"Successfully updated raffle {raffle_id} state to {raffle.state}")
@@ -129,7 +162,6 @@ class RaffleService:
             except SQLAlchemyError as state_error:
                 logger.error(f"Error updating raffle state: {str(state_error)}")
                 db.session.rollback()
-                # Continue even if state update fails - we still want to return the raffle
                     
             return raffle, None
                 
@@ -160,7 +192,6 @@ class RaffleService:
                 )
             ).all()
 
-            # Update states based on current time
             for raffle in raffles:
                 raffle.update_state()
 
@@ -172,7 +203,7 @@ class RaffleService:
 
     @staticmethod
     def update_raffle(raffle_id: int, data: dict, admin_id: int) -> Tuple[Optional[Raffle], Optional[str]]:
-        """Update raffle details"""
+        """Update raffle details and reschedule transitions if needed"""
         try:
             raffle = Raffle.query.get(raffle_id)
             if not raffle:
@@ -180,6 +211,10 @@ class RaffleService:
 
             if raffle.state not in [RaffleState.DRAFT.value, RaffleState.COMING_SOON.value]:
                 return None, "Can only update draft or coming soon raffles"
+
+            # Store original timing for comparison
+            original_start = raffle.start_time
+            original_end = raffle.end_time
 
             # Update allowed fields
             updatable_fields = [
@@ -190,6 +225,11 @@ class RaffleService:
             for field in updatable_fields:
                 if field in data:
                     setattr(raffle, field, data[field])
+
+            # Reschedule transitions if timing changed
+            if (raffle.status == RaffleStatus.ACTIVE.value and 
+                (original_start != raffle.start_time or original_end != raffle.end_time)):
+                RaffleService._schedule_state_transitions(raffle, reschedule=True)
 
             raffle.update_state()
             db.session.commit()
@@ -202,18 +242,20 @@ class RaffleService:
             return None, str(e)
 
     @staticmethod
-    def update_raffle_status(raffle_id: int, new_status: RaffleStatus, admin_id: int) -> Tuple[Optional[Raffle], Optional[str]]:
-        """Update raffle status"""
+    def update_raffle_status(raffle_id: int, new_status: str, admin_id: int) -> Tuple[Optional[Raffle], Optional[str]]:
+        """Update raffle status and manage scheduled transitions"""
         try:
             raffle = Raffle.query.get(raffle_id)
             if not raffle:
                 return None, "Raffle not found"
 
-            if new_status == RaffleStatus.ACTIVE:
+            if new_status == RaffleStatus.ACTIVE.value:
                 success, error = raffle.activate()
-            elif new_status == RaffleStatus.INACTIVE:
+                if success:
+                    RaffleService._schedule_state_transitions(raffle)
+            elif new_status == RaffleStatus.INACTIVE.value:
                 success, error = raffle.deactivate()
-            elif new_status == RaffleStatus.CANCELLED:
+            elif new_status == RaffleStatus.CANCELLED.value:
                 success, error = raffle.cancel()
             else:
                 return None, f"Invalid status: {new_status}"
@@ -237,7 +279,6 @@ class RaffleService:
             if not raffle:
                 return None, "Raffle not found"
 
-            # Get ticket statistics
             stats = db.session.query(
                 func.count(Ticket.id),
                 func.sum(case((Ticket.status == TicketStatus.SOLD.value, 1), else_=0)),
@@ -259,3 +300,47 @@ class RaffleService:
         except SQLAlchemyError as e:
             logger.error(f"Database error in get_raffle_stats: {str(e)}")
             return None, str(e)
+
+    @staticmethod
+    def _schedule_state_transitions(raffle: Raffle, reschedule: bool = False) -> None:
+        """
+        Schedule or reschedule state transitions for a raffle.
+        
+        Args:
+            raffle: Raffle instance to schedule transitions for
+            reschedule: Whether this is a rescheduling operation
+        """
+        try:
+            current_time = datetime.now(timezone.utc)
+
+            # Schedule transition to OPEN state if start time is in future
+            if current_time < raffle.start_time:
+                task_service.create_task({
+                    'task_type': TaskType.STATE_TRANSITION.value,
+                    'target_id': raffle.id,
+                    'execution_time': raffle.start_time,
+                    'params': {
+                        'from_state': RaffleState.COMING_SOON.value,
+                        'to_state': RaffleState.OPEN.value,
+                        'trigger_type': 'start_time'
+                    }
+                })
+                logger.info(f"Scheduled OPEN transition for raffle {raffle.id}")
+
+            # Always schedule transition to ENDED state
+            task_service.create_task({
+                'task_type': TaskType.STATE_TRANSITION.value,
+                'target_id': raffle.id,
+                'execution_time': raffle.end_time,
+                'params': {
+                    'from_state': RaffleState.OPEN.value,
+                    'to_state': RaffleState.ENDED.value,
+                    'trigger_type': 'end_time'
+                }
+            })
+            logger.info(f"Scheduled ENDED transition for raffle {raffle.id}")
+
+        except Exception as e:
+            logger.error(f"Failed to schedule transitions for raffle {raffle.id}: {str(e)}")
+            if not reschedule:  # Only raise if this is initial scheduling
+                raise

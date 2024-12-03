@@ -58,6 +58,17 @@ class StatusUpdateSchema(Schema):
     )
     reason = fields.Str(validate=validate.Length(max=255))
 
+class StateUpdateSchema(Schema):
+    """Schema for state updates"""
+    class Meta:
+        unknown = EXCLUDE
+
+    state = fields.Str(
+        required=True,
+        validate=validate.OneOf([s.value for s in RaffleState])
+    )
+    reason = fields.Str(validate=validate.Length(max=255))
+
 class DrawExecutionSchema(Schema):
     """Schema for executing draws"""
     class Meta:

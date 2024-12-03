@@ -1,13 +1,14 @@
 from flask import Blueprint, request, jsonify, current_app
 from src.shared.auth import token_required
 from src.raffle_service.services.reservation_service import ReservationService, TicketReservation, ReservationStatus
+from src.prize_center_service.services import InstanceService
 from marshmallow import ValidationError
 from src.raffle_service.services import (
     RaffleService,
     TicketService,
     DrawService
 )
-from src.raffle_service.models import RaffleStatus, RaffleState, Raffle
+from src.raffle_service.models import RaffleStatus, RaffleState, Raffle, Ticket, TicketStatus
 from src.shared.database import db
 import logging
 
@@ -266,6 +267,63 @@ def get_public_stats(raffle_id):
 
     except Exception as e:
         logger.error(f"Error getting public stats: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
+    
+@public_bp.route('/<int:raffle_id>/tickets/<string:ticket_id>/discover', methods=['POST'])
+@token_required
+def discover_prize(raffle_id: int, ticket_id: str):
+    """Discover prize for an instant win eligible ticket"""
+    try:
+        # 1. Verify ticket ownership and eligibility
+        ticket = Ticket.query.filter_by(
+            raffle_id=raffle_id,
+            ticket_id=ticket_id,
+            user_id=request.current_user.id,
+            status=TicketStatus.REVEALED.value,
+            instant_win_eligible=True
+        ).first()
+
+        if not ticket:
+            return jsonify({
+                'error': 'Invalid ticket or not eligible for prize discovery'
+            }), 400
+
+        # 2. Get raffle and prize pool
+        raffle = Raffle.query.get(raffle_id)
+        if not raffle:
+            return jsonify({'error': 'Raffle not found'}), 404
+
+        # 3. Attempt prize discovery
+        instance, error = InstanceService.discover_instant_win(
+            pool_id=raffle.prize_pool_id,
+            ticket_id=ticket.ticket_id
+        )
+
+        if error:
+            return jsonify({'error': error}), 400
+
+        # 4. Format response
+        if instance:
+            return jsonify({
+                'message': 'Prize discovered!',
+                'prize': {
+                    'instance_id': instance.instance_id,
+                    'type': instance.instance_type,
+                    'values': {
+                        'retail': float(instance.retail_value),
+                        'cash': float(instance.cash_value),
+                        'credit': float(instance.credit_value)
+                    }
+                }
+            }), 200
+        else:
+            return jsonify({
+                'message': 'No prize won',
+                'ticket_id': ticket_id
+            }), 200
+
+    except Exception as e:
+        logger.error(f"Error discovering prize: {str(e)}", exc_info=True)
         return jsonify({'error': 'Internal server error'}), 500
     
 @public_bp.route('/test', methods=['GET'])

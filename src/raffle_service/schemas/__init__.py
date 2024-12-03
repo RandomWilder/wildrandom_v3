@@ -2,6 +2,7 @@ from .raffle_schema import (
     RaffleCreateSchema,
     RaffleUpdateSchema,
     StatusUpdateSchema,
+    StateUpdateSchema,
     DrawExecutionSchema,
     RaffleResponseSchema
 )
@@ -19,6 +20,7 @@ __all__ = [
     'RaffleCreateSchema',
     'RaffleUpdateSchema',
     'StatusUpdateSchema',
+    'StateUpdateSchema',
     'DrawExecutionSchema',
     'RaffleResponseSchema',
     'TicketRevealSchema',
