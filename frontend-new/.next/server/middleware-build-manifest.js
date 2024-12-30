@@ -19,6 +19,16 @@ self.__BUILD_MANIFEST = {
       "static/chunks/main.js",
       "static/chunks/pages/_error.js"
     ],
+    "/admin/dashboard": [
+      "static/chunks/webpack.js",
+      "static/chunks/main.js",
+      "static/chunks/pages/admin/dashboard.js"
+    ],
+    "/admin/login": [
+      "static/chunks/webpack.js",
+      "static/chunks/main.js",
+      "static/chunks/pages/admin/login.js"
+    ],
     "/admin/raffles": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
@@ -28,11 +38,6 @@ self.__BUILD_MANIFEST = {
       "static/chunks/webpack.js",
       "static/chunks/main.js",
       "static/chunks/pages/admin/raffles/[id].js"
-    ],
-    "/admin/raffles/[id]/tickets": [
-      "static/chunks/webpack.js",
-      "static/chunks/main.js",
-      "static/chunks/pages/admin/raffles/[id]/tickets.js"
     ]
   },
   "ampFirstPages": []

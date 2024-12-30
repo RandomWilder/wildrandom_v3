@@ -34,6 +34,7 @@ interface RaffleState {
   
   // Loading States
   isLoading: boolean;
+  statsLoading: boolean;
   isLoadingTickets: boolean;
   isExecutingDraw: boolean;
   
@@ -85,6 +86,7 @@ export const useRaffleStore = create<RaffleState>((set, get) => ({
   winners: [],
   userWins: [],
   isLoading: false,
+  statsLoading: false,
   isLoadingTickets: false,
   isExecutingDraw: false,
   error: null,
@@ -167,51 +169,57 @@ export const useRaffleStore = create<RaffleState>((set, get) => ({
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'Failed to load raffle',
-        isLoading: false
+        isLoading: false,
+        currentRaffle: null
       });
     }
   },
 
-
   loadStats: async (raffleId: number) => {
     try {
-      set({ isLoading: true, error: null });
+      // Use dedicated stats loading state
+      set(state => ({ 
+        ...state,
+        statsLoading: true, 
+        error: null 
+      }));
+
       const response = await rafflesApi.getRaffleStats(raffleId);
       
-      // Type guard to ensure response has required properties
-      const isValidResponse = (resp: any): resp is PublicStatsResponse => {
-        return (
-          resp &&
-          typeof resp.total_tickets === 'number' &&
-          typeof resp.available_tickets === 'number' &&
-          typeof resp.sold_tickets === 'number' &&
-          typeof resp.revealed_tickets === 'number' &&
-          typeof resp.eligible_tickets === 'number' &&
-          typeof resp.instant_wins_discovered === 'number' &&
-          typeof resp.unique_participants === 'number'
-        );
+      // Enhanced validation
+      const stats: PublicStatsResponse = {
+        total_tickets: Number(response.total_tickets) || 0,
+        available_tickets: Number(response.available_tickets) || 0,
+        sold_tickets: Number(response.sold_tickets) || 0,
+        revealed_tickets: Number(response.revealed_tickets) || 0,
+        eligible_tickets: Number(response.eligible_tickets || 
+          (response.sold_tickets - response.revealed_tickets)) || 0,
+        instant_wins_discovered: Number(response.instant_wins_discovered) || 0,
+        unique_participants: Number(response.unique_participants) || 0
       };
 
-      if (!isValidResponse(response)) {
-        throw new Error('Invalid stats response format');
+      // Validate all fields are proper numbers
+      const invalidFields = Object.entries(stats)
+        .filter(([_, value]) => typeof value !== 'number' || isNaN(value))
+        .map(([key]) => key);
+
+      if (invalidFields.length > 0) {
+        throw new Error(`Invalid stats fields: ${invalidFields.join(', ')}`);
       }
 
-      // Calculate eligible_tickets if not provided by API
-      const stats: PublicStatsResponse = {
-        ...response,
-        eligible_tickets: response.eligible_tickets ?? 
-          (response.sold_tickets - response.revealed_tickets)
-      };
-
-      set({ 
+      set(state => ({
+        ...state,
         raffleStats: stats,
-        isLoading: false 
-      });
+        statsLoading: false
+      }));
+
     } catch (error) {
-      set({ 
+      set(state => ({
+        ...state,
         error: error instanceof Error ? error.message : 'Failed to load raffle stats',
-        isLoading: false 
-      });
+        statsLoading: false,
+        raffleStats: null
+      }));
     }
   },
 

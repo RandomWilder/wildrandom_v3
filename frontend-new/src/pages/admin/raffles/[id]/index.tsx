@@ -1,93 +1,96 @@
-// Path: src/pages/admin/raffles/[id]/index.tsx
+// src/pages/admin/raffles/[id]/index.tsx
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { ArrowLeft } from 'lucide-react';
 import type { NextPageWithLayout } from '@/types/next';
 import { AdminLayout } from '@/components/layout/AdminLayout';
-import { useRaffleStore } from '@/stores/raffleStore';
-import RaffleControls from '@/components/raffles/admin/RaffleControls';
-import RaffleDraws from '@/components/raffles/admin/RaffleDraws';
-import { RaffleStatsPanel } from '@/components/raffles/shared/RaffleStatsPanel';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/ui/loading';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { RaffleState, RaffleStatus, type StateUpdatePayload, type StatusUpdatePayload } from '@/types/raffles';
+import { useRaffleStore } from '@/stores/raffleStore';
+import { RaffleOverviewTab } from '@/components/raffles/admin/tabs/RaffleOverviewTab';
+import { RaffleTicketsTab } from '@/components/raffles/admin/tabs/RaffleTicketsTab';
+import { RaffleDrawsTab } from '@/components/raffles/admin/tabs/RaffleDrawsTab';
+import { RaffleWinnersTab } from '@/components/raffles/admin/tabs/RaffleWinnersTab';
+import RaffleControls from '@/components/raffles/admin/RaffleControls';
+import { ArrowLeft } from 'lucide-react';
 
+/**
+ * RaffleDetailPage
+ * 
+ * Comprehensive raffle management interface implementing:
+ * - Tab-based information architecture
+ * - Persistent URL state management
+ * - Graceful loading and error states
+ * - Efficient data synchronization
+ */
 const RaffleDetailPage: NextPageWithLayout = () => {
   const router = useRouter();
-  const { id } = router.query;
-  const raffleId = parseInt(id as string);
+  const { id, tab } = router.query;
+  const raffleId = typeof id === 'string' ? parseInt(id) : undefined;
 
-  const { 
+  const {
     currentRaffle,
-    raffleStats,
     isLoading,
     error,
     loadRaffle,
     loadStats,
-    updateRaffleStatus,  // Renamed for clarity
-    updateRaffleState,   // Renamed for clarity
-    executeDraw
-} = useRaffleStore(state => state);  // Explicit state selection
+    clearError
+  } = useRaffleStore();
 
-useEffect(() => {
-  if (raffleId) {
-    loadRaffle(raffleId);
-    loadStats(raffleId);
-  }
-}, [raffleId, loadRaffle, loadStats]);
+  // Strategic data initialization and cleanup
+  useEffect(() => {
+    if (raffleId) {
+      clearError();
+      loadRaffle(raffleId);
+      loadStats(raffleId);
+    }
 
-const handleStateChange = async (newState: RaffleState) => {
-  if (!raffleId) return;
-  
-  const payload: StateUpdatePayload = {
-    state: newState,
-    reason: `State changed to ${newState}`
+    return () => {
+      clearError(); // Ensure clean state on unmount
+    };
+  }, [raffleId, loadRaffle, loadStats, clearError]);
+
+  // URL-based tab management
+  const handleTabChange = (value: string) => {
+    router.push(
+      {
+        pathname: router.pathname,
+        query: { ...router.query, tab: value }
+      },
+      undefined,
+      { shallow: true }
+    );
   };
 
-  try {
-    await updateRaffleState(raffleId, payload);
-    await loadRaffle(raffleId);
-  } catch (error) {
-    console.error('Failed to update state:', error);
+  // Navigation guard
+  if (!raffleId) {
+    router.push('/admin/raffles');
+    return null;
   }
-};
 
-const handleStatusChange = async (newStatus: RaffleStatus) => {
-  if (!raffleId) return;
-
-  const payload: StatusUpdatePayload = {
-    status: newStatus,
-    reason: `Status changed to ${newStatus}`
-  };
-
-  try {
-    await updateRaffleStatus(raffleId, payload);
-    await loadRaffle(raffleId);
-  } catch (error) {
-    console.error('Failed to update status:', error);
-  }
-};
-
+  // Loading state
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <LoadingSpinner />
+      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+        <LoadingSpinner className="w-8 h-8" />
       </div>
     );
   }
 
+  // Error boundary
   if (error || !currentRaffle) {
     return (
-      <Card className="m-6">
+      <Card className="max-w-2xl mx-auto mt-8">
         <div className="p-6">
-          <h2 className="text-lg font-medium text-red-800">Error</h2>
-          <p className="mt-2 text-sm text-red-600">{error || 'Raffle not found'}</p>
+          <h2 className="text-lg font-medium text-red-800 mb-2">
+            {error || 'Raffle not found'}
+          </h2>
           <button
             onClick={() => router.push('/admin/raffles')}
-            className="mt-4 text-sm text-indigo-600 hover:text-indigo-500"
+            className="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-500"
           >
+            <ArrowLeft className="w-4 h-4 mr-2" />
             Return to Raffles
           </button>
         </div>
@@ -96,43 +99,40 @@ const handleStatusChange = async (newStatus: RaffleStatus) => {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div>
+    <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Navigation and Context */}
+      <div className="mb-8">
         <button
           onClick={() => router.push('/admin/raffles')}
-          className="flex items-center text-sm text-gray-500 hover:text-gray-700"
+          className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 mb-4"
         >
           <ArrowLeft className="w-4 h-4 mr-1" />
           Back to Raffles
         </button>
-        
-        <div className="mt-4">
-          <h1 className="text-2xl font-bold">{currentRaffle.title}</h1>
-          {currentRaffle.description && (
-            <p className="mt-1 text-gray-500">{currentRaffle.description}</p>
-          )}
-        </div>
+        <h1 className="text-2xl font-bold text-gray-900">
+          {currentRaffle.title}
+        </h1>
+        {currentRaffle.description && (
+          <p className="mt-1 text-gray-500 max-w-3xl">{currentRaffle.description}</p>
+        )}
       </div>
 
-      {/* Controls */}
+      {/* Raffle Controls */}
       <RaffleControls
         raffleId={raffleId}
         currentState={currentRaffle.state}
         currentStatus={currentRaffle.status}
-        onStateChange={handleStateChange}
-        onStatusChange={handleStatusChange}
       />
 
-      {/* Stats */}
-      {raffleStats && (
-        <RaffleStatsPanel stats={raffleStats} />
-      )}
-
-      {/* Tabbed Content */}
-      <Card>
-        <Tabs defaultValue="overview" className="p-6">
-          <TabsList>
+      {/* Tab Interface */}
+      <Card className="mt-6">
+        <Tabs
+          defaultValue={tab as string || 'overview'}
+          value={tab as string || 'overview'}
+          onValueChange={handleTabChange}
+          className="p-6"
+        >
+          <TabsList className="mb-4">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="tickets">Tickets</TabsTrigger>
             <TabsTrigger value="draws">Draws</TabsTrigger>
@@ -140,23 +140,22 @@ const handleStatusChange = async (newStatus: RaffleStatus) => {
           </TabsList>
 
           <TabsContent value="overview">
-            {/* Overview content */}
+            <RaffleOverviewTab raffle={currentRaffle} />
           </TabsContent>
 
           <TabsContent value="tickets">
-            {/* Ticket management component */}
+            <RaffleTicketsTab raffleId={raffleId} />
           </TabsContent>
 
           <TabsContent value="draws">
-            <RaffleDraws
+            <RaffleDrawsTab
               raffleId={raffleId}
               canExecuteDraw={currentRaffle.state === 'ended'}
-              onExecuteDraw={() => executeDraw(raffleId)}
             />
           </TabsContent>
 
           <TabsContent value="winners">
-            {/* Winners list component */}
+            <RaffleWinnersTab raffleId={raffleId} />
           </TabsContent>
         </Tabs>
       </Card>
@@ -164,10 +163,12 @@ const handleStatusChange = async (newStatus: RaffleStatus) => {
   );
 };
 
+// Layout configuration
 RaffleDetailPage.getLayout = (page) => (
   <AdminLayout>{page}</AdminLayout>
 );
 
+// Security configuration
 RaffleDetailPage.requireAuth = true;
 
 export default RaffleDetailPage;

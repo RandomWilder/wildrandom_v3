@@ -10,6 +10,9 @@ export type AdminRoute =
   | '/admin/prizes/pools'
   // Raffles
   | '/admin/raffles'
+  | '/admin/raffles/create'
+  | '/admin/raffles/[id]'
+  | '/admin/raffles/[id]/edit'
   // Users
   | '/admin/users'
   // Analytics

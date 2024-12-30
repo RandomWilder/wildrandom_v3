@@ -17,9 +17,9 @@ const RafflesListPage: NextPage = () => {
     loadRaffles();
   }, [loadRaffles]);
 
-  // Navigate to raffle tickets page
+  // Updated navigation handler - routes to raffle detail view
   const handleRaffleClick = (raffle: Raffle) => {
-    router.push(`/admin/raffles/${raffle.id}/tickets`);
+    router.push(`/admin/raffles/${raffle.id}`); // Removed /tickets suffix
   };
 
   // Create new raffle
