@@ -3,6 +3,8 @@
 from flask import Blueprint, request, jsonify
 from src.shared.auth import token_required, admin_required
 from src.user_service.models.user import User
+from src.user_service.services.user_service import UserService
+from src.user_service.services.activity_service import ActivityService
 from src.user_service.services.admin_auth_service import AdminAuthService
 from src.user_service.schemas.admin_schema import (
     AdminLoginSchema,
@@ -73,6 +75,22 @@ def list_users():
     except Exception as e:
         logger.error(f"User listing error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
+    
+@admin_auth_bp.route('/users/<int:user_id>', methods=['GET'])
+@token_required
+@admin_required
+def get_user(user_id):
+    """Get enhanced user details including gaming metrics"""
+    try:
+        enhanced_data, error = AdminAuthService.get_enhanced_user_details(user_id)
+        if error:
+            return jsonify({'error': error}), 404
+
+        return jsonify({'user': enhanced_data}), 200
+
+    except Exception as e:
+        logger.error(f"Error fetching enhanced user data: {str(e)}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
 
 @admin_auth_bp.route('/users/<int:user_id>', methods=['PUT'])
 @token_required

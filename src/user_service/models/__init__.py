@@ -5,6 +5,8 @@ from .user_status import UserStatusChange
 from .user_activity import UserActivity
 from .credit_transaction import CreditTransaction
 from .password_reset import PasswordReset
+from .user_loyalty import UserLoyalty, LoyaltyHistory  # Add this line
+
 import src.user_service.models.relationships
 
 __all__ = [
@@ -12,5 +14,7 @@ __all__ = [
     'UserStatusChange',
     'UserActivity',
     'CreditTransaction',
-    'PasswordReset'
+    'PasswordReset',
+    'UserLoyalty',        # Add this
+    'LoyaltyHistory'      # Add this
 ]

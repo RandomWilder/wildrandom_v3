@@ -47,6 +47,21 @@ logger = logging.getLogger(__name__)
 # Create blueprint
 admin_bp = Blueprint('admin', __name__, url_prefix='/api/admin/raffles')
 
+
+@admin_bp.route('', methods=['GET'])
+@token_required
+@admin_required
+def list_raffles():
+    """List all raffles for admin"""
+    try:
+        raffles = Raffle.query.order_by(Raffle.created_at.desc()).all()
+        return jsonify({
+            'raffles': [raffle.to_dict() for raffle in raffles]
+        }), 200
+    except Exception as e:
+        logger.error(f"Error listing raffles: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 @admin_bp.route('/', methods=['POST'])
 @token_required
 @admin_required

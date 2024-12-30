@@ -1,10 +1,20 @@
 from typing import Optional, Tuple, List, Dict
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
-from sqlalchemy import or_
+from sqlalchemy import func, desc, or_
 from src.shared import db
 from src.user_service.models import User, UserStatusChange
 from src.user_service.services.activity_service import ActivityService
+from src.payment_service.services import PaymentService
+from src.user_service.models import (
+    User, 
+    UserLoyalty,
+    UserActivity, 
+    UserStatusChange, 
+    CreditTransaction, 
+    PasswordReset,
+    LoyaltyHistory
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -260,3 +270,76 @@ class UserService:
         except SQLAlchemyError as e:
             logger.error(f"Database error in search_users: {str(e)}")
             return None, 0, str(e)
+        
+    @staticmethod
+    def get_admin_user_details(user_id: int) -> Tuple[Optional[Dict], Optional[str]]:
+        """Get comprehensive user details for admin view"""
+        try:
+            # Base user query with necessary joins
+            user = db.session.query(User)\
+                .outerjoin(User.loyalty)\
+                .filter(User.id == user_id)\
+                .first()
+
+            if not user:
+                return None, "User not found"
+
+            # Get user base data including balance
+            user_dict = user.to_dict()
+            
+            # Get loyalty data safely
+            loyalty = user.loyalty
+
+            # Get recent activities (last 5)
+            recent_activities = UserActivity.query\
+                .filter_by(user_id=user_id)\
+                .order_by(UserActivity.created_at.desc())\
+                .limit(5)\
+                .all()
+
+            # Build response dictionary
+            response_data = {
+                # Core User Data
+                "id": user_dict["id"],
+                "username": user_dict["username"],
+                "email": user_dict["email"],
+                "first_name": user_dict.get("first_name"),
+                "last_name": user_dict.get("last_name"),
+                "phone_number": user_dict.get("phone_number"),
+                "auth_provider": user_dict["auth_provider"],
+                "is_verified": user_dict["is_verified"],
+                "is_active": user_dict["is_active"],
+                "is_admin": user_dict["is_admin"],
+                "created_at": user_dict["created_at"],  # Already string from to_dict()
+                "last_login": user_dict.get("last_login"),  # Already string from to_dict()
+                "verification_status": "verified" if user_dict["is_verified"] else "pending",
+
+                # Balance Data from user_dict
+                "balance_available": user_dict["balance"]["available"],
+                "balance_last_updated": user_dict["balance"]["last_updated"],  # Already string
+
+                # Loyalty Data
+                "loyalty_level": loyalty.current_level if loyalty else "NEWBIE",
+                "loyalty_badges": loyalty.badges if loyalty else [],
+                "loyalty_total_entries": loyalty.total_entries if loyalty else 0,
+                "loyalty_total_spend": loyalty.total_spend if loyalty else 0.0,
+                "loyalty_streak_days": loyalty.streak_days if loyalty else 0,
+                "loyalty_last_activity": loyalty.last_activity.isoformat() if loyalty and loyalty.last_activity else None,
+                "loyalty_level_updated_at": loyalty.level_updated_at.isoformat() if loyalty and loyalty.level_updated_at else None,
+
+                # Activity Data
+                "recent_activities": [{
+                    "timestamp": activity.created_at.isoformat(),
+                    "type": activity.activity_type,
+                    "status": activity.status
+                } for activity in (recent_activities or [])],
+                
+                # Empty status changes for now
+                "status_changes": []
+            }
+
+            return response_data, None
+
+        except Exception as e:
+            logger.error(f"Error retrieving admin user details: {str(e)}", exc_info=True)
+            return None, str(e)

@@ -47,3 +47,5 @@ htmlcov/
 
 # Migration versions
 migrations/versions/
+node_modules
+node_modules
