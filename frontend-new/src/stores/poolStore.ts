@@ -8,25 +8,65 @@ import type {
   CreatePoolPayload
 } from '@/types/pools';
 
+interface PrizeInstance {
+  instance_id: string;
+  template_id: number;
+  type: 'instant_win' | 'draw_win';
+  status: string;
+  values: {
+    retail: number;
+    cash: number;
+    credit: number;
+  };
+  created_at: string;
+  discovery_info: any | null;
+  claim_info: any | null;
+}
+
+interface InstancesSummary {
+  available: number;
+  claimed: number;
+  discovered: number;
+  expired: number;
+  voided: number;
+}
+
 interface PoolState {
+  // Collection State
   pools: PrizePool[];
   activePool: PrizePool | null;
+  
+  // Instances State
+  instances: PrizeInstance[];
+  instancesSummary: InstancesSummary | null;
+  
+  // UI State
   isLoading: boolean;
+  isLoadingInstances: boolean;
   error: string | null;
 
-  // Actions
+  // Collection Actions
   fetchPools: () => Promise<void>;
   getPool: (id: number) => Promise<void>;
   createPool: (data: CreatePoolPayload) => Promise<void>;
   lockPool: (poolId: number) => Promise<void>;
   allocateTemplate: (poolId: number, allocation: TemplateAllocation) => Promise<AllocationResponse>;
+  
+  // Instance Actions
+  fetchInstances: (poolId: number) => Promise<void>;
+  
+  // Utility Actions
   clearError: () => void;
 }
 
 export const usePoolStore = create<PoolState>((set, get) => ({
+  // Initial State
   pools: [],
   activePool: null,
+  instances: [],
+  instancesSummary: null,
   isLoading: false,
+  isLoadingInstances: false,
   error: null,
 
   fetchPools: async () => {
@@ -115,6 +155,24 @@ export const usePoolStore = create<PoolState>((set, get) => ({
         ? error.message 
         : 'Failed to allocate template';
       set({ error: errorMessage, isLoading: false });
+      throw error;
+    }
+  },
+
+  fetchInstances: async (poolId: number) => {
+    set({ isLoadingInstances: true });
+    try {
+      const response = await poolsApi.getPoolInstances(poolId);
+      set({ 
+        instances: response.instances,
+        instancesSummary: response.summary,
+        isLoadingInstances: false 
+      });
+    } catch (error) {
+      set({ 
+        error: error instanceof Error ? error.message : 'Failed to fetch instances',
+        isLoadingInstances: false 
+      });
       throw error;
     }
   },

@@ -41,6 +41,12 @@ class Config:
     RATELIMIT_DEFAULT = "200 per day"
     RATELIMIT_STORAGE_URL = "memory://"
 
+    # WebSocket Configuration
+    WEBSOCKET_HOST = os.getenv('WEBSOCKET_HOST', '0.0.0.0')
+    WEBSOCKET_PORT = int(os.getenv('WEBSOCKET_PORT', 8765))
+    WEBSOCKET_PING_INTERVAL = int(os.getenv('WEBSOCKET_PING_INTERVAL', 20))  # seconds
+    WEBSOCKET_PING_TIMEOUT = int(os.getenv('WEBSOCKET_PING_TIMEOUT', 20))    # seconds
+
 class TestConfig(Config):
     """Test configuration"""
     TESTING = True

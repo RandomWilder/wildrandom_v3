@@ -1,8 +1,10 @@
+#src/prize_center_service/routes/admin_routes.py
+
 from flask import Blueprint, request, jsonify
 from marshmallow import ValidationError
 from src.shared.auth import token_required, admin_required
 from src.prize_center_service.services import TemplateService, PoolService
-from src.prize_center_service.models import PrizePool
+from src.prize_center_service.models import PrizePool, PrizeInstance
 from src.prize_center_service.schemas import (
     PrizeTemplateCreateSchema,
     PrizeTemplateUpdateSchema,
@@ -102,6 +104,64 @@ def update_template(template_id):
         return jsonify({'error': 'Internal server error'}), 500
 
 # Pool Routes
+
+@admin_prizes_bp.route('/pools', methods=['GET'])
+@token_required
+@admin_required
+def list_pools():
+    """
+    List all prize pools with comprehensive administrative details.
+    
+    Returns:
+        200: JSON response with complete pool listing
+        500: Error response if database operation fails
+        
+    Response Format:
+        {
+            "pools": [
+                {
+                    "id": int,
+                    "name": string,
+                    "description": string,
+                    "status": "unlocked" | "locked" | "used",
+                    "total_instances": int,
+                    "instant_win_instances": int,
+                    "draw_win_instances": int,
+                    "values": {
+                        "retail_total": float,
+                        "cash_total": float,
+                        "credit_total": float
+                    },
+                    "total_odds": float,
+                    "locked_at": string | null,
+                    "created_at": string
+                }
+            ],
+            "total_pools": int,
+            "active_pools": int
+        }
+    """
+    try:
+        logger.info("Admin requesting complete pool listing")
+        
+        # Query all pools with optimized loading
+        pools = PrizePool.query.order_by(PrizePool.created_at.desc()).all()
+        
+        # Calculate summary metrics
+        active_pools = sum(1 for pool in pools if pool.status != 'used')
+        
+        response_data = {
+            "pools": [pool.to_dict() for pool in pools],
+            "total_pools": len(pools),
+            "active_pools": active_pools
+        }
+        
+        logger.debug(f"Returning {len(pools)} pools to admin")
+        return jsonify(response_data), 200
+        
+    except Exception as e:
+        logger.error(f"Error listing pools: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
 
 @admin_prizes_bp.route('/pools/<int:pool_id>', methods=['GET'])
 @token_required
@@ -228,6 +288,83 @@ def allocate_to_pool(pool_id):
     except Exception as e:
         logger.error(f"Unexpected error in allocation: {str(e)}", exc_info=True)
         return jsonify({'error': str(e)}), 500
+
+@admin_prizes_bp.route('/pools/<int:pool_id>/instances', methods=['GET'])
+@token_required
+@admin_required
+def list_pool_instances(pool_id: int):
+    """
+    List all prize instances in a pool with comprehensive details.
+    
+    Query Parameters:
+        status: Optional[str] - Filter by instance status
+        type: Optional[str] - Filter by instance type (instant_win/draw_win)
+        page: Optional[int] - Page number for pagination
+        per_page: Optional[int] = 50 - Items per page
+        
+    Returns:
+        200: JSON response with instances listing
+        404: If pool not found
+        500: On server error
+    """
+    try:
+        # Verify pool exists
+        pool = PrizePool.query.get_or_404(pool_id)
+        
+        # Build query with filters
+        query = PrizeInstance.query.filter_by(pool_id=pool_id)
+        
+        if status := request.args.get('status'):
+            query = query.filter_by(status=status)
+            
+        if instance_type := request.args.get('type'):
+            query = query.filter_by(instance_type=instance_type)
+            
+        # Add pagination
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        pagination = query.paginate(page=page, per_page=per_page)
+        
+        response_data = {
+            "pool_id": pool_id,
+            "total_instances": pagination.total,
+            "page": page,
+            "pages": pagination.pages,
+            "instances": [{
+                "instance_id": instance.instance_id,
+                "type": instance.instance_type,
+                "status": instance.status,
+                "values": {
+                    "retail": float(instance.retail_value),
+                    "cash": float(instance.cash_value),
+                    "credit": float(instance.credit_value)
+                },
+                "template_id": instance.template_id,
+                "discovery_info": {
+                    "ticket_id": instance.discovering_ticket_id,
+                    "time": instance.discovery_time.isoformat() if instance.discovery_time else None
+                } if instance.discovering_ticket_id else None,
+                "claim_info": {
+                    "claimed_by": instance.claimed_by_id,
+                    "claimed_at": instance.claimed_at.isoformat() if instance.claimed_at else None,
+                    "transaction_id": instance.claim_transaction_id
+                } if instance.claimed_by_id else None,
+                "created_at": instance.created_at.isoformat()
+            } for instance in pagination.items],
+            "summary": {
+                "available": query.filter_by(status="AVAILABLE").count(),
+                "discovered": query.filter_by(status="DISCOVERED").count(),
+                "claimed": query.filter_by(status="CLAIMED").count(),
+                "expired": query.filter_by(status="EXPIRED").count(),
+                "voided": query.filter_by(status="VOIDED").count()
+            }
+        }
+        
+        return jsonify(response_data), 200
+        
+    except Exception as e:
+        logger.error(f"Error listing pool instances: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
 
 @admin_prizes_bp.route('/pools/<int:pool_id>/lock', methods=['PUT'])
 @token_required

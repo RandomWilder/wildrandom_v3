@@ -1,0 +1,23 @@
+{
+  "version": "1.0.0",
+  "generated_at": "2025-01-24T15:35:22.560848+00:00",
+  "frontend_integration": {
+    "base_url": "/api",
+    "auth_header": "Authorization",
+    "token_type": "Bearer",
+    "websocket_endpoint": "/api/ws",
+    "max_request_size": 10485760
+  },
+  "caching": {
+    "default_ttl": 300,
+    "max_ttl": 3600,
+    "supported_strategies": [
+      "memory",
+      "redis"
+    ]
+  },
+  "rate_limiting": {
+    "default_rate": "100/minute",
+    "burst_size": 10
+  }
+}

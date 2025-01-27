@@ -14,9 +14,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-public_bp = Blueprint('public', __name__, url_prefix='/api/raffles')
+public_raffle_bp = Blueprint('public_raffle', __name__, url_prefix='/api/raffles')
 
-@public_bp.route('/<int:raffle_id>', methods=['GET'])
+@public_raffle_bp.route('/<int:raffle_id>', methods=['GET'])
 def get_raffle(raffle_id):
     """Get raffle details"""
     try:
@@ -52,7 +52,7 @@ def get_raffle(raffle_id):
         logger.error(f"Error fetching raffle: {str(e)}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
-@public_bp.route('/', methods=['GET'])
+@public_raffle_bp.route('/', methods=['GET'])
 def list_raffles():
     """List visible raffles"""
     try:
@@ -68,7 +68,7 @@ def list_raffles():
         logger.error(f"Error listing raffles: {str(e)}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
-@public_bp.route('/<int:raffle_id>/tickets', methods=['GET'])
+@public_raffle_bp.route('/<int:raffle_id>/tickets', methods=['GET'])
 @token_required
 def get_my_tickets(raffle_id):
     """Get user's tickets for a specific raffle"""
@@ -86,7 +86,7 @@ def get_my_tickets(raffle_id):
         logger.error(f"Error getting user tickets: {str(e)}", exc_info=True)
         return jsonify({'error': 'Internal server error'}), 500
     
-@public_bp.route('/<int:raffle_id>/reserve', methods=['POST'])
+@public_raffle_bp.route('/<int:raffle_id>/reserve', methods=['POST'])
 @token_required
 def reserve_tickets(raffle_id):
     """Reserve tickets for purchase"""
@@ -133,7 +133,7 @@ def reserve_tickets(raffle_id):
         return jsonify({'error': 'Internal server error'}), 500
 
 # Add reservation status endpoint
-@public_bp.route('/reservations/<int:reservation_id>', methods=['GET'])
+@public_raffle_bp.route('/reservations/<int:reservation_id>', methods=['GET'])
 @token_required
 def get_reservation_status(reservation_id):
     """Get reservation status"""
@@ -152,7 +152,7 @@ def get_reservation_status(reservation_id):
         logger.error(f"Error getting reservation: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@public_bp.route('/<int:raffle_id>/tickets/reveal', methods=['POST'])
+@public_raffle_bp.route('/<int:raffle_id>/tickets/reveal', methods=['POST'])
 @token_required
 def reveal_tickets(raffle_id):
     """Reveal user's tickets"""
@@ -177,7 +177,7 @@ def reveal_tickets(raffle_id):
         logger.error(f"Error revealing tickets: {str(e)}", exc_info=True)
         return jsonify({'error': 'Internal server error'}), 500
 
-@public_bp.route('/my-tickets', methods=['GET'])
+@public_raffle_bp.route('/my-tickets', methods=['GET'])
 @token_required
 def get_all_my_tickets():
     """Get user's tickets across all raffles"""
@@ -204,7 +204,7 @@ def get_all_my_tickets():
         logger.error(f"Error getting user tickets: {str(e)}", exc_info=True)
         return jsonify({'error': 'Internal server error'}), 500
 
-@public_bp.route('/<int:raffle_id>/winners', methods=['GET'])
+@public_raffle_bp.route('/<int:raffle_id>/winners', methods=['GET'])
 def get_raffle_winners(raffle_id):
     """Get raffle winners"""
     try:
@@ -225,7 +225,7 @@ def get_raffle_winners(raffle_id):
         logger.error(f"Error getting winners: {str(e)}", exc_info=True)
         return jsonify({'error': 'Internal server error'}), 500
 
-@public_bp.route('/my-wins', methods=['GET'])
+@public_raffle_bp.route('/my-wins', methods=['GET'])
 @token_required
 def get_my_wins():
     """Get user's winning tickets"""
@@ -240,7 +240,7 @@ def get_my_wins():
         logger.error(f"Error getting user wins: {str(e)}", exc_info=True)
         return jsonify({'error': 'Internal server error'}), 500
 
-@public_bp.route('/<int:raffle_id>/stats', methods=['GET'])
+@public_raffle_bp.route('/<int:raffle_id>/stats', methods=['GET'])
 def get_public_stats(raffle_id):
     """Get public raffle statistics"""
     try:
@@ -269,7 +269,7 @@ def get_public_stats(raffle_id):
         logger.error(f"Error getting public stats: {str(e)}", exc_info=True)
         return jsonify({'error': 'Internal server error'}), 500
     
-@public_bp.route('/<int:raffle_id>/tickets/<string:ticket_id>/discover', methods=['POST'])
+@public_raffle_bp.route('/<int:raffle_id>/tickets/<string:ticket_id>/discover', methods=['POST'])
 @token_required
 def discover_prize(raffle_id: int, ticket_id: str):
     """Discover prize for an instant win eligible ticket"""
@@ -326,7 +326,7 @@ def discover_prize(raffle_id: int, ticket_id: str):
         logger.error(f"Error discovering prize: {str(e)}", exc_info=True)
         return jsonify({'error': 'Internal server error'}), 500
     
-@public_bp.route('/test', methods=['GET'])
+@public_raffle_bp.route('/test', methods=['GET'])
 def test_public_route():
     """Test route to verify public endpoint accessibility"""
     return jsonify({"message": "Public routes accessible"}), 200

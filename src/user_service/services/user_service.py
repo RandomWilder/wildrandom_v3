@@ -1,10 +1,12 @@
 from typing import Optional, Tuple, List, Dict
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
-from sqlalchemy import func, desc, or_
+from sqlalchemy import func, case, distinct, Float, cast, or_
+from sqlalchemy import select, case
 from src.shared import db
 from src.user_service.models import User, UserStatusChange
 from src.user_service.services.activity_service import ActivityService
+from src.prize_center_service.models import PrizeInstance
 from src.payment_service.services import PaymentService
 from src.user_service.models import (
     User, 
@@ -18,6 +20,18 @@ from src.user_service.models import (
 import logging
 
 logger = logging.getLogger(__name__)
+
+def prize_status_case():
+    return case(
+        (PrizeInstance.status.in_(['discovered', 'claimed']), PrizeInstance.id),
+        else_=None
+    )
+
+def prize_value_case():
+    return case(
+        (PrizeInstance.status.in_(['discovered', 'claimed']), PrizeInstance.credit_value),
+        else_=0
+    )
 
 class UserService:
     @staticmethod
@@ -342,4 +356,139 @@ class UserService:
 
         except Exception as e:
             logger.error(f"Error retrieving admin user details: {str(e)}", exc_info=True)
+            return None, str(e)
+        
+    @staticmethod
+    def get_user_statistics(user_id: int) -> Tuple[Optional[Dict], Optional[str]]:
+        """Get comprehensive user statistics across all services"""
+        try:
+            # Import models locally to avoid circular imports
+            from src.raffle_service.models import Ticket, Raffle
+            from src.prize_center_service.models import PrizeInstance
+            from src.payment_service.services import PaymentService
+
+            # Get current balance
+            balance, _ = PaymentService.get_or_create_balance(user_id)
+            
+            # Get active tickets count (in ongoing raffles)
+            active_tickets = db.session.query(func.count(Ticket.id)).filter(
+                Ticket.user_id == user_id,
+                Ticket.status.in_(['sold', 'revealed']),
+                Ticket.raffle_id == Raffle.id,
+                Raffle.state.in_(['open', 'coming_soon'])
+            ).scalar() or 0
+
+            # Get pending prizes count
+            pending_prizes = db.session.query(func.count(PrizeInstance.id)).filter(
+                PrizeInstance.claimed_by_id == user_id,
+                PrizeInstance.status == 'discovered',
+                PrizeInstance.claimed_at.is_(None)
+            ).scalar() or 0
+
+            # Get recent activity (last 10 raffles)
+            recent_activity_query = db.session.query(
+                Ticket.raffle_id,
+                Raffle.title.label('raffle_name'),
+                func.min(Ticket.created_at).label('date'),
+                func.count(Ticket.id).label('quantity'),
+                # Remove array_agg and handle ticket numbers separately
+                PrizeInstance.status.label('prize_status'),
+                PrizeInstance.credit_value,
+                PrizeInstance.claimed_at,
+                PrizeInstance.discovery_time
+            ).join(
+                Raffle, Ticket.raffle_id == Raffle.id
+            ).outerjoin(
+                PrizeInstance, 
+                (PrizeInstance.discovering_ticket_id == Ticket.ticket_id) &
+                (PrizeInstance.claimed_by_id == user_id)
+            ).filter(
+                Ticket.user_id == user_id
+            ).group_by(
+                Ticket.raffle_id,
+                Raffle.title,
+                PrizeInstance.status,
+                PrizeInstance.credit_value,
+                PrizeInstance.claimed_at,
+                PrizeInstance.discovery_time
+            ).order_by(
+                func.min(Ticket.created_at).desc()
+            ).limit(10)
+
+            recent_activity = []
+            for row in recent_activity_query:
+                # Get ticket numbers in a separate query
+                ticket_numbers = db.session.query(
+                    Ticket.ticket_number
+                ).filter(
+                    Ticket.user_id == user_id,
+                    Ticket.raffle_id == row.raffle_id
+                ).all()
+                
+                activity = {
+                    'raffle_id': row.raffle_id,
+                    'raffle_name': row.raffle_name,
+                    'date': row.date.isoformat(),
+                    'tickets': {
+                        'quantity': row.quantity,
+                        'numbers': [t[0] for t in ticket_numbers]  # Extract numbers from query result
+                    },
+                    'result': {
+                        'status': 'pending' if row.prize_status is None else
+                                'won' if row.prize_status in ['discovered', 'claimed'] else 'lost'
+                    }
+                }
+
+                if row.prize_status:
+                    activity['result']['prize'] = {
+                        'value': float(row.credit_value),
+                        'type': 'credit',
+                        'claimed': bool(row.claimed_at),
+                        'claim_by': (row.discovery_time + timedelta(days=1)).isoformat() 
+                                if row.discovery_time and not row.claimed_at else None
+                    }
+
+                recent_activity.append(activity)
+
+            # Get lifetime summary
+            summary_query = db.session.query(
+                func.count(distinct(Ticket.raffle_id)).label('lifetime_raffles'),
+                func.count(distinct(prize_status_case())).label('total_wins'),
+                func.sum(cast(Ticket.transaction.has(amount=None), Float)).label('total_spent'),
+                func.sum(prize_value_case()).label('total_won')
+            ).outerjoin(
+                PrizeInstance,
+                (PrizeInstance.discovering_ticket_id == Ticket.ticket_id) &
+                (PrizeInstance.claimed_by_id == user_id)
+            ).filter(
+                Ticket.user_id == user_id
+            ).first()
+
+            # Refined credit spending query to match transaction log
+            credits_spent = db.session.query(
+                func.sum(func.abs(CreditTransaction.amount))
+            ).filter(
+                CreditTransaction.user_id == user_id,
+                CreditTransaction.transaction_type == 'ticket_purchase',  # 🔑 Key change: match exact type
+                CreditTransaction.amount < 0  # 🎯 Ensure we only count debits
+            ).scalar() or 0.0
+
+            return {
+                'current': {
+                    'active_tickets': active_tickets,
+                    'pending_prizes': pending_prizes,
+                    'available_balance': float(balance.available_amount) if balance else 0.0
+                },
+                'recent_activity': recent_activity,
+                'summary': {
+                    'lifetime_raffles': summary_query.lifetime_raffles or 0,
+                    'total_wins': summary_query.total_wins or 0,
+                    'total_spent': float(summary_query.total_spent or 0),
+                    'total_credits_spent': float(credits_spent),  # Will now show 5.0 based on our transaction log
+                    'total_won': float(summary_query.total_won or 0)
+                }
+            }, None
+
+        except Exception as e:
+            logger.error(f"Error getting user statistics: {str(e)}", exc_info=True)
             return None, str(e)

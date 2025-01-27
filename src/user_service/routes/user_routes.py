@@ -94,3 +94,18 @@ def update_profile():
         
     except ValidationError as e:
         return jsonify({'error': e.messages}), 400
+    
+@user_bp.route('/statistics', methods=['GET'])
+@token_required
+def get_user_statistics():
+    """Get user's comprehensive statistics"""
+    try:
+        stats, error = UserService.get_user_statistics(request.current_user.id)
+        if error:
+            return jsonify({'error': error}), 400
+            
+        return jsonify(stats), 200
+        
+    except Exception as e:
+        logger.error(f"Error getting user statistics: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500

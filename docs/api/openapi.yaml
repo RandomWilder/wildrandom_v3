@@ -1,0 +1,15 @@
+openapi: 3.0.3
+info:
+  title: WildRandom API Gateway
+  version: 1.0.0
+  description: Frontend-optimized API Gateway for WildRandom platform
+servers:
+- url: /api
+paths: {}
+components:
+  schemas: {}
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

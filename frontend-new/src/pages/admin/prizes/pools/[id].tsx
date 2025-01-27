@@ -17,6 +17,7 @@ import { usePrizeStore } from '@/stores/prizeStore';
 import { TemplateAllocationForm } from '@/components/pools/TemplateAllocationForm';
 import { AllocationsList } from '@/components/pools/AllocationsList';
 import { PoolHeader } from '@/components/pools/PoolHeader';
+import { PrizeInstances } from '@/components/pools/PrizeInstances';
 import { formatCurrency } from '@/utils/currency';
 import { POOL_STATUS_META } from '@/types/pools';
 
@@ -27,10 +28,14 @@ const PoolDetailPage: NextPageWithLayout = () => {
 
   const { 
     activePool,
+    instances,
+    instancesSummary,
     isLoading: poolLoading,
+    isLoadingInstances,
     error: poolError,
     getPool,
-    lockPool 
+    lockPool,
+    fetchInstances
   } = usePoolStore();
 
   const {
@@ -45,8 +50,9 @@ const PoolDetailPage: NextPageWithLayout = () => {
     if (poolId) {
       getPool(poolId);
       fetchTemplates();
+      fetchInstances(poolId);
     }
-  }, [poolId, getPool, fetchTemplates]);
+  }, [poolId, getPool, fetchTemplates, fetchInstances]);
 
   const handleLockPool = async () => {
     if (!activePool) return;
@@ -55,6 +61,7 @@ const PoolDetailPage: NextPageWithLayout = () => {
       await lockPool(activePool.id);
       // Refresh pool data after locking
       getPool(activePool.id);
+      fetchInstances(activePool.id);
     } catch (error) {
       console.error('Failed to lock pool:', error);
     }
@@ -140,7 +147,7 @@ const PoolDetailPage: NextPageWithLayout = () => {
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-600">Total Value</p>
                   <p className="mt-2 text-3xl font-semibold text-gray-900">
-                    {formatCurrency(activePool.values.retail_total)}
+                    {formatCurrency(activePool.values?.retail_total ?? 0)}
                   </p>
                 </div>
               </div>
@@ -148,13 +155,13 @@ const PoolDetailPage: NextPageWithLayout = () => {
                 <div className="flex text-sm">
                   <p className="flex-1 text-gray-500">Cash Value</p>
                   <p className="font-medium">
-                    {formatCurrency(activePool.values.cash_total)}
+                    {formatCurrency(activePool.values?.cash_total ?? 0)}
                   </p>
                 </div>
                 <div className="flex text-sm mt-1">
                   <p className="flex-1 text-gray-500">Credit Value</p>
                   <p className="font-medium">
-                    {formatCurrency(activePool.values.credit_total)}
+                    {formatCurrency(activePool.values?.credit_total ?? 0)}
                   </p>
                 </div>
               </div>
@@ -167,14 +174,20 @@ const PoolDetailPage: NextPageWithLayout = () => {
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-600">Total Odds</p>
                   <p className="mt-2 text-3xl font-semibold text-gray-900">
-                    {activePool.total_odds.toFixed(1)}%
+                    {activePool.total_odds?.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                    })}%
                   </p>
                 </div>
               </div>
               <div className="mt-4">
                 <div className="text-sm text-gray-500">
                   {activePool.total_odds < 100
-                    ? `${(100 - activePool.total_odds).toFixed(1)}% remaining`
+                    ? `${(100 - activePool.total_odds)?.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}% remaining`
                     : 'Odds complete'}
                 </div>
               </div>
@@ -242,6 +255,25 @@ const PoolDetailPage: NextPageWithLayout = () => {
           poolId={activePool.id}
           lockStatus={activePool.status !== 'unlocked'}
         />
+
+        {/* Prize Instances */}
+        {activePool.status !== 'unlocked' && (
+          <div className="mt-8">
+            <h2 className="text-lg font-medium text-gray-900 mb-4">Prize Instances</h2>
+            <PrizeInstances
+              poolId={poolId}
+              instances={instances}
+              isLoading={isLoadingInstances}
+              summary={instancesSummary || {
+                available: 0,
+                claimed: 0,
+                discovered: 0,
+                expired: 0,
+                voided: 0
+              }}
+            />
+          </div>
+        )}
 
         {/* Lock Pool Button */}
         {activePool.status === 'unlocked' && (
