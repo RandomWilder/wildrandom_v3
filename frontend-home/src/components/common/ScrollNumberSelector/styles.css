@@ -1,0 +1,31 @@
+/* src/components/common/ScrollNumberSelector/styles.css */
+
+.scroll-number-container {
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scroll-number-container::-webkit-scrollbar {
+  display: none;
+}
+
+.scroll-number-track {
+  /* Ensure proper spacing */
+  padding: 0 calc(50% - 2rem);
+}
+
+.scroll-number-item {
+  scroll-snap-align: center;
+  transition: all 0.2s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Hide on larger screens if needed */
+@media (min-width: 1024px) {
+  .scroll-number-container.desktop-hidden {
+    display: none;
+  }
+}

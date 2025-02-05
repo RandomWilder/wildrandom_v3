@@ -10,6 +10,7 @@ from decimal import Decimal
 from typing import Optional, Tuple, Dict, Any
 from src.shared import db
 from src.prize_center_service.models import PrizeInstance
+from src.raffle_service.models.ticket import Ticket, TicketStatus
 from enum import Enum
 import logging
 
@@ -323,6 +324,14 @@ class Raffle(db.Model):
             'is_visible': self.is_visible(),
             'time_remaining': self.calculate_time_remaining()
         }
+
+        # Add this new calculation for Available Tickets
+        available_tickets = db.session.query(db.func.count(Ticket.id)).filter(
+            Ticket.raffle_id == self.id,
+            Ticket.status == 'available'
+        ).scalar() or 0
+        
+        base_dict['available_tickets'] = available_tickets
 
         # Add prize pool summary if available
         prize_pool_summary = self.get_prize_pool_summary()

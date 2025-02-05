@@ -2,10 +2,10 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/admin/prizes/pools": "pages/admin/prizes/pools.js",
+  "/admin/users": "pages/admin/users.js",
   "/admin/raffles": "pages/admin/raffles.js",
+  "/admin/users/[id]": "pages/admin/users/[id].js",
   "/admin/login": "pages/admin/login.js",
   "/admin/dashboard": "pages/admin/dashboard.js",
-  "/admin/prizes/pools/[id]": "pages/admin/prizes/pools/[id].js",
-  "/admin/prizes/templates": "pages/admin/prizes/templates.js"
+  "/admin/raffles/[id]": "pages/admin/raffles/[id].js"
 }

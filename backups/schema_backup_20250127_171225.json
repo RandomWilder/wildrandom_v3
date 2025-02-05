@@ -1,0 +1,2365 @@
+{
+  "alembic_version": {
+    "columns": [
+      {
+        "name": "version_num",
+        "type": "VARCHAR(32) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": []
+  },
+  "balances": {
+    "columns": [
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "available_amount",
+        "type": "DECIMAL(10, 2)",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "pending_amount",
+        "type": "DECIMAL(10, 2)",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "last_updated",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "version",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "name": "balances_ibfk_1",
+        "constrained_columns": [
+          "user_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "users",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      }
+    ],
+    "indexes": []
+  },
+  "credit_transactions": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": true
+      },
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "amount",
+        "type": "FLOAT",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "transaction_type",
+        "type": "VARCHAR(20) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "balance_after",
+        "type": "FLOAT",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "reference_type",
+        "type": "VARCHAR(50) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "reference_id",
+        "type": "VARCHAR(100) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "notes",
+        "type": "VARCHAR(255) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "created_by_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "name": "credit_transactions_ibfk_1",
+        "constrained_columns": [
+          "user_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "users",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      },
+      {
+        "name": "credit_transactions_ibfk_2",
+        "constrained_columns": [
+          "created_by_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "users",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      }
+    ],
+    "indexes": [
+      {
+        "name": "created_by_id",
+        "column_names": [
+          "created_by_id"
+        ],
+        "unique": false
+      },
+      {
+        "name": "user_id",
+        "column_names": [
+          "user_id"
+        ],
+        "unique": false
+      }
+    ]
+  },
+  "loyalty_history": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": true
+      },
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "previous_level",
+        "type": "VARCHAR(20) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "new_level",
+        "type": "VARCHAR(20) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "reason",
+        "type": "VARCHAR(255) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      }
+    ],
+    "foreign_keys": [
+      {
+        "name": "loyalty_history_ibfk_1",
+        "constrained_columns": [
+          "user_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "users",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      }
+    ],
+    "indexes": [
+      {
+        "name": "user_id",
+        "column_names": [
+          "user_id"
+        ],
+        "unique": false
+      }
+    ]
+  },
+  "password_resets": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": true
+      },
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "token",
+        "type": "VARCHAR(128) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "expires_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "used",
+        "type": "TINYINT",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      },
+      {
+        "name": "used_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      }
+    ],
+    "foreign_keys": [
+      {
+        "name": "password_resets_ibfk_1",
+        "constrained_columns": [
+          "user_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "users",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      }
+    ],
+    "indexes": [
+      {
+        "name": "token",
+        "column_names": [
+          "token"
+        ],
+        "unique": true,
+        "type": "UNIQUE"
+      },
+      {
+        "name": "user_id",
+        "column_names": [
+          "user_id"
+        ],
+        "unique": false
+      }
+    ]
+  },
+  "prize_instances": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": true
+      },
+      {
+        "name": "instance_id",
+        "type": "VARCHAR(20) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "pool_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "template_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "status",
+        "type": "ENUM",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "individual_odds",
+        "type": "FLOAT",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "retail_value",
+        "type": "DECIMAL(10, 2)",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "cash_value",
+        "type": "DECIMAL(10, 2)",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "credit_value",
+        "type": "DECIMAL(10, 2)",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "created_by_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "instance_type",
+        "type": "VARCHAR(20) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "collective_odds",
+        "type": "FLOAT",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "distribution_type",
+        "type": "ENUM",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "discovering_ticket_id",
+        "type": "VARCHAR(20) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "discovery_time",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "claimed_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "claimed_by_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      },
+      {
+        "name": "claim_transaction_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      },
+      {
+        "name": "claim_meta",
+        "type": "JSON",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      }
+    ],
+    "foreign_keys": [
+      {
+        "name": "prize_instances_ibfk_1",
+        "constrained_columns": [
+          "created_by_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "users",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      },
+      {
+        "name": "prize_instances_ibfk_2",
+        "constrained_columns": [
+          "pool_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "prize_pools",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      },
+      {
+        "name": "prize_instances_ibfk_3",
+        "constrained_columns": [
+          "template_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "prize_templates",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      },
+      {
+        "name": "prize_instances_ibfk_4",
+        "constrained_columns": [
+          "claimed_by_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "users",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      }
+    ],
+    "indexes": [
+      {
+        "name": "claimed_by_id",
+        "column_names": [
+          "claimed_by_id"
+        ],
+        "unique": false
+      },
+      {
+        "name": "created_by_id",
+        "column_names": [
+          "created_by_id"
+        ],
+        "unique": false
+      },
+      {
+        "name": "instance_id",
+        "column_names": [
+          "instance_id"
+        ],
+        "unique": true,
+        "type": "UNIQUE"
+      },
+      {
+        "name": "pool_id",
+        "column_names": [
+          "pool_id"
+        ],
+        "unique": false
+      },
+      {
+        "name": "template_id",
+        "column_names": [
+          "template_id"
+        ],
+        "unique": false
+      }
+    ]
+  },
+  "prize_pools": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": true
+      },
+      {
+        "name": "name",
+        "type": "VARCHAR(100) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "description",
+        "type": "TEXT COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "status",
+        "type": "ENUM",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "total_instances",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      },
+      {
+        "name": "instant_win_instances",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      },
+      {
+        "name": "draw_win_instances",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      },
+      {
+        "name": "retail_total",
+        "type": "DECIMAL(12, 2)",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "cash_total",
+        "type": "DECIMAL(12, 2)",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "credit_total",
+        "type": "DECIMAL(12, 2)",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "total_odds",
+        "type": "FLOAT",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "locked_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "locked_by_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "created_by_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "current_raffle_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "name": "prize_pools_ibfk_1",
+        "constrained_columns": [
+          "created_by_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "users",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      },
+      {
+        "name": "prize_pools_ibfk_2",
+        "constrained_columns": [
+          "locked_by_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "users",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      },
+      {
+        "name": "prize_pools_ibfk_3",
+        "constrained_columns": [
+          "current_raffle_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "raffles",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      }
+    ],
+    "indexes": [
+      {
+        "name": "created_by_id",
+        "column_names": [
+          "created_by_id"
+        ],
+        "unique": false
+      },
+      {
+        "name": "current_raffle_id",
+        "column_names": [
+          "current_raffle_id"
+        ],
+        "unique": false
+      },
+      {
+        "name": "locked_by_id",
+        "column_names": [
+          "locked_by_id"
+        ],
+        "unique": false
+      },
+      {
+        "name": "name",
+        "column_names": [
+          "name"
+        ],
+        "unique": true,
+        "type": "UNIQUE"
+      }
+    ]
+  },
+  "prize_templates": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": true
+      },
+      {
+        "name": "name",
+        "type": "VARCHAR(100) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "type",
+        "type": "ENUM",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "tier",
+        "type": "ENUM",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "retail_value",
+        "type": "DECIMAL(10, 2)",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "cash_value",
+        "type": "DECIMAL(10, 2)",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "credit_value",
+        "type": "DECIMAL(10, 2)",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "total_instances",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      },
+      {
+        "name": "pools_count",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      },
+      {
+        "name": "instances_claimed",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      },
+      {
+        "name": "is_deleted",
+        "type": "TINYINT",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "created_by_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      }
+    ],
+    "foreign_keys": [
+      {
+        "name": "prize_templates_ibfk_1",
+        "constrained_columns": [
+          "created_by_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "users",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      }
+    ],
+    "indexes": [
+      {
+        "name": "created_by_id",
+        "column_names": [
+          "created_by_id"
+        ],
+        "unique": false
+      }
+    ]
+  },
+  "raffle_draws": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": true
+      },
+      {
+        "name": "raffle_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "ticket_id",
+        "type": "VARCHAR(30) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "draw_sequence",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "prize_instance_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "result",
+        "type": "VARCHAR(20) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "drawn_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "processed_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      }
+    ],
+    "foreign_keys": [
+      {
+        "name": "raffle_draws_ibfk_1",
+        "constrained_columns": [
+          "raffle_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "raffles",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      },
+      {
+        "name": "raffle_draws_ibfk_3",
+        "constrained_columns": [
+          "prize_instance_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "prize_instances",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      }
+    ],
+    "indexes": [
+      {
+        "name": "prize_instance_id",
+        "column_names": [
+          "prize_instance_id"
+        ],
+        "unique": false
+      },
+      {
+        "name": "ticket_id",
+        "column_names": [
+          "ticket_id"
+        ],
+        "unique": false
+      },
+      {
+        "name": "uq_raffle_draw_sequence",
+        "column_names": [
+          "raffle_id",
+          "draw_sequence"
+        ],
+        "unique": true,
+        "type": "UNIQUE"
+      }
+    ]
+  },
+  "raffle_history": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": true
+      },
+      {
+        "name": "raffle_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "previous_status",
+        "type": "VARCHAR(20) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "new_status",
+        "type": "VARCHAR(20) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "previous_state",
+        "type": "VARCHAR(20) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "new_state",
+        "type": "VARCHAR(20) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "changed_by_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      },
+      {
+        "name": "reason",
+        "type": "VARCHAR(255) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      }
+    ],
+    "foreign_keys": [
+      {
+        "name": "raffle_history_ibfk_1",
+        "constrained_columns": [
+          "raffle_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "raffles",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      },
+      {
+        "name": "raffle_history_ibfk_2",
+        "constrained_columns": [
+          "changed_by_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "users",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      }
+    ],
+    "indexes": [
+      {
+        "name": "changed_by_id",
+        "column_names": [
+          "changed_by_id"
+        ],
+        "unique": false
+      },
+      {
+        "name": "raffle_id",
+        "column_names": [
+          "raffle_id"
+        ],
+        "unique": false
+      }
+    ]
+  },
+  "raffles": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": true
+      },
+      {
+        "name": "title",
+        "type": "VARCHAR(100) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "description",
+        "type": "TEXT COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "prize_pool_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "total_tickets",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "ticket_price",
+        "type": "DECIMAL(10, 2)",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "max_tickets_per_user",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "start_time",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "end_time",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "status",
+        "type": "VARCHAR(20) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "state",
+        "type": "VARCHAR(20) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "created_by_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "state_locked",
+        "type": "TINYINT",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      },
+      {
+        "name": "state_locked_reason",
+        "type": "VARCHAR(255) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "state_locked_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      }
+    ],
+    "foreign_keys": [
+      {
+        "name": "raffles_ibfk_1",
+        "constrained_columns": [
+          "prize_pool_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "prize_pools",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      },
+      {
+        "name": "raffles_ibfk_2",
+        "constrained_columns": [
+          "created_by_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "users",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      }
+    ],
+    "indexes": [
+      {
+        "name": "created_by_id",
+        "column_names": [
+          "created_by_id"
+        ],
+        "unique": false
+      },
+      {
+        "name": "prize_pool_id",
+        "column_names": [
+          "prize_pool_id"
+        ],
+        "unique": false
+      }
+    ]
+  },
+  "scheduled_tasks": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "task_type",
+        "type": "VARCHAR(50) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "target_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "execution_time",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "status",
+        "type": "VARCHAR(20) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "retry_count",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      },
+      {
+        "name": "last_error",
+        "type": "TEXT COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "last_retry",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "params",
+        "type": "JSON",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": [
+      {
+        "name": "idx_execution_time",
+        "column_names": [
+          "execution_time",
+          "status"
+        ],
+        "unique": false
+      }
+    ]
+  },
+  "ticket_reservations": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": true
+      },
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "raffle_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "ticket_ids",
+        "type": "JSON",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "total_amount",
+        "type": "DECIMAL(10, 2)",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "expires_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "status",
+        "type": "VARCHAR(20) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "completed_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "transaction_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "name": "ticket_reservations_ibfk_1",
+        "constrained_columns": [
+          "raffle_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "raffles",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      },
+      {
+        "name": "ticket_reservations_ibfk_2",
+        "constrained_columns": [
+          "user_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "users",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      }
+    ],
+    "indexes": [
+      {
+        "name": "raffle_id",
+        "column_names": [
+          "raffle_id"
+        ],
+        "unique": false
+      },
+      {
+        "name": "user_id",
+        "column_names": [
+          "user_id"
+        ],
+        "unique": false
+      }
+    ]
+  },
+  "tickets": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": true
+      },
+      {
+        "name": "raffle_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "ticket_id",
+        "type": "VARCHAR(20) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "ticket_number",
+        "type": "VARCHAR(10) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      },
+      {
+        "name": "status",
+        "type": "VARCHAR(20) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "instant_win_eligible",
+        "type": "TINYINT",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      },
+      {
+        "name": "is_revealed",
+        "type": "TINYINT",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      },
+      {
+        "name": "reveal_time",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "reveal_sequence",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      },
+      {
+        "name": "purchase_time",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "transaction_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      }
+    ],
+    "foreign_keys": [
+      {
+        "name": "tickets_ibfk_1",
+        "constrained_columns": [
+          "raffle_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "raffles",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      },
+      {
+        "name": "tickets_ibfk_2",
+        "constrained_columns": [
+          "user_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "users",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      },
+      {
+        "name": "tickets_ibfk_3",
+        "constrained_columns": [
+          "transaction_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "credit_transactions",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      }
+    ],
+    "indexes": [
+      {
+        "name": "idx_ticket_id",
+        "column_names": [
+          "ticket_id"
+        ],
+        "unique": true,
+        "type": "UNIQUE"
+      },
+      {
+        "name": "idx_ticket_raffle_number",
+        "column_names": [
+          "raffle_id",
+          "ticket_number"
+        ],
+        "unique": true,
+        "type": "UNIQUE"
+      },
+      {
+        "name": "idx_ticket_reveal",
+        "column_names": [
+          "raffle_id",
+          "user_id",
+          "reveal_time"
+        ],
+        "unique": false
+      },
+      {
+        "name": "ticket_id",
+        "column_names": [
+          "ticket_id"
+        ],
+        "unique": true,
+        "type": "UNIQUE"
+      },
+      {
+        "name": "transaction_id",
+        "column_names": [
+          "transaction_id"
+        ],
+        "unique": false
+      },
+      {
+        "name": "user_id",
+        "column_names": [
+          "user_id"
+        ],
+        "unique": false
+      }
+    ]
+  },
+  "transaction_logs": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": true
+      },
+      {
+        "name": "transaction_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "action",
+        "type": "VARCHAR(50) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "status",
+        "type": "VARCHAR(50) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "detail",
+        "type": "JSON",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "timestamp",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      }
+    ],
+    "foreign_keys": [
+      {
+        "name": "transaction_logs_ibfk_1",
+        "constrained_columns": [
+          "transaction_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "transactions",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      }
+    ],
+    "indexes": [
+      {
+        "name": "transaction_id",
+        "column_names": [
+          "transaction_id"
+        ],
+        "unique": false
+      }
+    ]
+  },
+  "transactions": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": true
+      },
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "type",
+        "type": "VARCHAR(20) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "amount",
+        "type": "DECIMAL(10, 2)",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "balance_after",
+        "type": "DECIMAL(10, 2)",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "status",
+        "type": "VARCHAR(20) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "reference_type",
+        "type": "VARCHAR(50) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "reference_id",
+        "type": "VARCHAR(100) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "meta_data",
+        "type": "JSON",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "completed_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "credit_transaction_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "name": "transactions_ibfk_1",
+        "constrained_columns": [
+          "user_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "users",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      },
+      {
+        "name": "transactions_ibfk_2",
+        "constrained_columns": [
+          "credit_transaction_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "credit_transactions",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      }
+    ],
+    "indexes": [
+      {
+        "name": "credit_transaction_id",
+        "column_names": [
+          "credit_transaction_id"
+        ],
+        "unique": false
+      },
+      {
+        "name": "user_id",
+        "column_names": [
+          "user_id"
+        ],
+        "unique": false
+      }
+    ]
+  },
+  "user_activities": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": true
+      },
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "activity_type",
+        "type": "VARCHAR(50) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "ip_address",
+        "type": "VARCHAR(45) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "user_agent",
+        "type": "VARCHAR(255) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "status",
+        "type": "VARCHAR(20) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "details",
+        "type": "JSON",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      }
+    ],
+    "foreign_keys": [
+      {
+        "name": "user_activities_ibfk_1",
+        "constrained_columns": [
+          "user_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "users",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      }
+    ],
+    "indexes": [
+      {
+        "name": "user_id",
+        "column_names": [
+          "user_id"
+        ],
+        "unique": false
+      }
+    ]
+  },
+  "user_loyalty": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": true
+      },
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "current_level",
+        "type": "VARCHAR(20) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "badges",
+        "type": "JSON",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "total_entries",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      },
+      {
+        "name": "total_spend",
+        "type": "FLOAT",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "last_activity",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "streak_days",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      },
+      {
+        "name": "level_updated_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      }
+    ],
+    "foreign_keys": [
+      {
+        "name": "user_loyalty_ibfk_1",
+        "constrained_columns": [
+          "user_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "users",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      }
+    ],
+    "indexes": [
+      {
+        "name": "user_id",
+        "column_names": [
+          "user_id"
+        ],
+        "unique": true,
+        "type": "UNIQUE"
+      }
+    ]
+  },
+  "user_status_changes": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": true
+      },
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "changed_by_id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "previous_status",
+        "type": "TINYINT",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "new_status",
+        "type": "TINYINT",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": false
+      },
+      {
+        "name": "reason",
+        "type": "VARCHAR(255) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "timestamp",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      }
+    ],
+    "foreign_keys": [
+      {
+        "name": "user_status_changes_ibfk_1",
+        "constrained_columns": [
+          "user_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "users",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      },
+      {
+        "name": "user_status_changes_ibfk_2",
+        "constrained_columns": [
+          "changed_by_id"
+        ],
+        "referred_schema": null,
+        "referred_table": "users",
+        "referred_columns": [
+          "id"
+        ],
+        "options": {}
+      }
+    ],
+    "indexes": [
+      {
+        "name": "changed_by_id",
+        "column_names": [
+          "changed_by_id"
+        ],
+        "unique": false
+      },
+      {
+        "name": "user_id",
+        "column_names": [
+          "user_id"
+        ],
+        "unique": false
+      }
+    ]
+  },
+  "users": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "default": null,
+        "comment": null,
+        "nullable": false,
+        "autoincrement": true
+      },
+      {
+        "name": "username",
+        "type": "VARCHAR(64) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "email",
+        "type": "VARCHAR(120) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": false
+      },
+      {
+        "name": "password_hash",
+        "type": "VARCHAR(255) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "first_name",
+        "type": "VARCHAR(64) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "last_name",
+        "type": "VARCHAR(64) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "site_credits",
+        "type": "FLOAT",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "is_active",
+        "type": "TINYINT",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      },
+      {
+        "name": "is_verified",
+        "type": "TINYINT",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      },
+      {
+        "name": "is_admin",
+        "type": "TINYINT",
+        "default": null,
+        "comment": null,
+        "nullable": true,
+        "autoincrement": false
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "last_login",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "phone_number",
+        "type": "VARCHAR(20) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "auth_provider",
+        "type": "VARCHAR(20) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "google_id",
+        "type": "VARCHAR(100) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "verification_token",
+        "type": "VARCHAR(64) COLLATE \"utf8mb4_unicode_ci\"",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      },
+      {
+        "name": "verification_token_expires",
+        "type": "DATETIME",
+        "default": null,
+        "comment": null,
+        "nullable": true
+      }
+    ],
+    "foreign_keys": [],
+    "indexes": [
+      {
+        "name": "google_id",
+        "column_names": [
+          "google_id"
+        ],
+        "unique": true,
+        "type": "UNIQUE"
+      },
+      {
+        "name": "ix_users_email",
+        "column_names": [
+          "email"
+        ],
+        "unique": true,
+        "type": "UNIQUE"
+      },
+      {
+        "name": "ix_users_username",
+        "column_names": [
+          "username"
+        ],
+        "unique": true,
+        "type": "UNIQUE"
+      },
+      {
+        "name": "phone_number",
+        "column_names": [
+          "phone_number"
+        ],
+        "unique": true,
+        "type": "UNIQUE"
+      },
+      {
+        "name": "verification_token",
+        "column_names": [
+          "verification_token"
+        ],
+        "unique": true,
+        "type": "UNIQUE"
+      }
+    ]
+  }
+}

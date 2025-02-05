@@ -34,13 +34,16 @@ def create_app(config_name: str | None = None, register_blueprints: bool = True)
 
     # Enable CORS
     CORS(app, resources={
-        r"/api/*": {
-            "origins": ["http://localhost:3001", "http://localhost:3000"],
-            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-            "allow_headers": ["Content-Type", "Authorization"],
-            "supports_credentials": True
-        }
-    })
+    r"/api/*": {
+        "origins": ["http://localhost:3001", "http://localhost:3000", "http://localhost:5173"],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"],
+        "supports_credentials": True,
+        "expose_headers": ["Content-Type", "Authorization"],
+        "allow_credentials": True,
+        "send_wildcard": False
+    }
+})
 
     # Load configuration
     if config_name is None:
@@ -60,12 +63,14 @@ def create_app(config_name: str | None = None, register_blueprints: bool = True)
         from src.user_service.routes.admin_auth_routes import admin_auth_bp
         from src.user_service.routes.loyalty_routes import loyalty_bp
         from src.user_service.routes.verification_routes import verification_bp
+        from src.user_service.routes.protection_routes import protection_bp
         
         app.register_blueprint(user_bp)
         app.register_blueprint(password_bp)
         app.register_blueprint(admin_auth_bp)
         app.register_blueprint(loyalty_bp)
         app.register_blueprint(verification_bp)
+        app.register_blueprint(protection_bp)
 
         # Register Prize Center Service blueprints
         from src.prize_center_service.routes.admin_routes import admin_prizes_bp
