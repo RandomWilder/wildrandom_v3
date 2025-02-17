@@ -1,5 +1,9 @@
+// src/api/reservationApi.ts
+
 import axios, { AxiosError } from 'axios';
 import axiosInstance from './client';
+import { createApiError, createApiSuccess } from './types/common';
+import type { ApiResponse } from './types/common';
 import type { 
   ReservationRequest, 
   ReservationResponse, 
@@ -10,85 +14,155 @@ import type {
 /**
  * Reservation API Service
  * Provides type-safe interfaces to backend reservation services
+ * Implements proper error handling and response validation
  */
-export const reservationApi = {
+export class ReservationApi {
+  private static readonly BASE_PATH = '/api/raffles';
+
+  /**
+   * Maps backend validation errors to user-friendly messages
+   * @private
+   * @param error - Error response from backend
+   * @returns Formatted error message
+   */
+  private static mapValidationError(error: ReservationError): string {
+    if (error.details?.available_quantity !== undefined) {
+      return `Only ${error.details.available_quantity} tickets available`;
+    }
+    if (error.details?.max_per_user !== undefined) {
+      return `Maximum ${error.details.max_per_user} tickets per user allowed`;
+    }
+    return error.error;
+  }
+
   /**
    * Create a new ticket reservation
    * 
    * @param raffleId - Target raffle identifier
    * @param data - Reservation request data
-   * @returns Promise<ReservationResponse | ReservationError>
+   * @returns Promise<ApiResponse<ReservationResponse>>
    * 
-   * @throws AxiosError for network or server errors
+   * @throws Never - Errors are transformed into ApiResponse
    */
-  createReservation: async (
+  static async createReservation(
     raffleId: number,
     data: ReservationRequest
-  ): Promise<ReservationResponse | ReservationError> => {
+  ): Promise<ApiResponse<ReservationResponse>> {
     try {
       const { data: responseData } = await axiosInstance.post<ReservationResponse>(
-        `/api/raffles/${raffleId}/reserve`,
+        `${this.BASE_PATH}/${raffleId}/reserve`,
         data
       );
-      return responseData;
+
+      return createApiSuccess(responseData);
     } catch (err) {
       if (axios.isAxiosError(err)) {
         const error = err as AxiosError<ReservationError>;
-        return {
-          error: error.response?.data?.error || 'Failed to create reservation',
-          details: error.response?.data?.details
-        };
+        
+        if (error.response?.status === 400) {
+          return createApiError(
+            'VALIDATION_ERROR',
+            this.mapValidationError(error.response.data)
+          );
+        }
+
+        if (error.response?.status === 404) {
+          return createApiError(
+            'NOT_FOUND',
+            'Raffle not found'
+          );
+        }
+
+        return createApiError(
+          'API_ERROR',
+          error.response?.data?.error || 'Failed to create reservation'
+        );
       }
-      return { error: 'An unexpected error occurred' };
+
+      return createApiError(
+        'UNKNOWN_ERROR',
+        'An unexpected error occurred'
+      );
     }
-  },
+  }
 
   /**
    * Get reservation status
    * 
    * @param reservationId - Reservation identifier
-   * @returns Promise<TicketReservation | ReservationError>
+   * @returns Promise<ApiResponse<TicketReservation>>
    */
-  getReservationStatus: async (
+  static async getReservation(
     reservationId: number
-  ): Promise<TicketReservation | ReservationError> => {
+  ): Promise<ApiResponse<TicketReservation>> {
     try {
       const { data } = await axiosInstance.get<TicketReservation>(
-        `/api/raffles/reservations/${reservationId}`
+        `${this.BASE_PATH}/reservations/${reservationId}`
       );
-      return data;
+
+      return createApiSuccess(data);
     } catch (err) {
       if (axios.isAxiosError(err)) {
         const error = err as AxiosError<ReservationError>;
-        return {
-          error: error.response?.data?.error || 'Failed to fetch reservation status'
-        };
+        
+        if (error.response?.status === 404) {
+          return createApiError(
+            'NOT_FOUND',
+            'Reservation not found'
+          );
+        }
+
+        return createApiError(
+          'API_ERROR',
+          error.response?.data?.error || 'Failed to fetch reservation'
+        );
       }
-      return { error: 'An unexpected error occurred' };
+
+      return createApiError(
+        'UNKNOWN_ERROR',
+        'An unexpected error occurred'
+      );
     }
-  },
+  }
 
   /**
    * Cancel an existing reservation
    * 
    * @param reservationId - Reservation identifier
-   * @returns Promise<void | ReservationError>
+   * @returns Promise<ApiResponse<void>>
    */
-  cancelReservation: async (
+  static async cancelReservation(
     reservationId: number
-  ): Promise<void | ReservationError> => {
+  ): Promise<ApiResponse<void>> {
     try {
-      await axiosInstance.post(`/api/raffles/reservations/${reservationId}/cancel`);
+      await axiosInstance.post(
+        `${this.BASE_PATH}/reservations/${reservationId}/cancel`
+      );
+
+      return createApiSuccess(undefined);
     } catch (err) {
       if (axios.isAxiosError(err)) {
         const error = err as AxiosError<ReservationError>;
-        return {
-          error: error.response?.data?.error || 'Failed to cancel reservation'
-        };
+
+        if (error.response?.status === 404) {
+          return createApiError(
+            'NOT_FOUND',
+            'Reservation not found'
+          );
+        }
+
+        return createApiError(
+          'API_ERROR',
+          error.response?.data?.error || 'Failed to cancel reservation'
+        );
       }
-      return { error: 'An unexpected error occurred' };
+
+      return createApiError(
+        'UNKNOWN_ERROR',
+        'An unexpected error occurred'
+      );
     }
   }
-};
+}
 
-export default reservationApi;
+export default ReservationApi;

@@ -1,18 +1,17 @@
-import { atom } from 'jotai';
-import { atomWithStorage } from 'jotai/utils';
-import type { SiteCreditBalance } from '../features/payment/types';
-
 /**
- * Balance State Management
+ * Balance Store Module
  * 
- * Implements reactive balance state management with the following features:
- * - Real-time balance updates with optimistic mutations 
- * - Persistent cache with TTL for offline scenarios
- * - Type-safe state transitions and updates
- * - Integration with payment service events
+ * Implements atomic balance management with session integration, TTL-based cache,
+ * and type-safe state transitions. Provides real-time balance synchronization
+ * across components while maintaining proper error boundaries.
  */
 
-// #region Type Definitions
+import { atom } from 'jotai';
+import { atomWithStorage } from 'jotai/utils';
+import type { SiteCreditBalance } from '../api/types/payment';
+import { sessionAtom } from './session';
+
+// Type Definitions
 interface BalanceState {
   data: SiteCreditBalance | null;
   lastUpdated: string | null;
@@ -25,10 +24,11 @@ interface BalanceCache {
   timestamp: number;
 }
 
-// #region Constants
+// Constants
 const CACHE_TTL = 30000; // 30 seconds cache validity
+const STALE_THRESHOLD = 5 * 60 * 1000; // 5 minutes until balance considered stale
 
-// #region Initial States
+// Initial States
 const initialState: BalanceState = {
   data: null,
   lastUpdated: null,
@@ -41,9 +41,10 @@ const initialCache: BalanceCache = {
   timestamp: 0
 };
 
-// #region Core State Atoms
+// Core Balance Atom
 export const balanceStateAtom = atom<BalanceState>(initialState);
 
+// Cached Balance Storage
 export const balanceCacheAtom = atomWithStorage<BalanceCache>(
   'wildrandom_balance_cache',
   initialCache,
@@ -73,36 +74,37 @@ export const balanceCacheAtom = atomWithStorage<BalanceCache>(
   }
 );
 
-// #region Computed Atoms
+// Computed Atoms
 export const availableBalanceAtom = atom<number>((get) => {
   const state = get(balanceStateAtom);
-  return state.data?.available_amount ?? 0;
+  return state.data?.available_balance ?? 0;
 });
 
 export const isBalanceStaleAtom = atom<boolean>((get) => {
-  const cache = get(balanceCacheAtom);
-  return Date.now() - cache.timestamp > CACHE_TTL;
+  const state = get(balanceStateAtom);
+  if (!state.lastUpdated) return true;
+  return Date.now() - new Date(state.lastUpdated).getTime() > STALE_THRESHOLD;
 });
 
-// #region Action Atoms
+// Action Atoms for Balance Management
 export const balanceActionsAtom = atom(
   null,
-  (_get, set, action: {
+  (get, set, action: {
     type: 'SET_LOADING' | 'SET_ERROR' | 'UPDATE_BALANCE' | 'RESET';
     payload?: any;
   }) => {
     switch (action.type) {
       case 'SET_LOADING':
-        set(balanceStateAtom, (state) => ({
-          ...state,
+        set(balanceStateAtom, (prev) => ({
+          ...prev,
           isLoading: true,
           error: null
         }));
         break;
 
       case 'SET_ERROR':
-        set(balanceStateAtom, (state) => ({
-          ...state,
+        set(balanceStateAtom, (prev) => ({
+          ...prev,
           isLoading: false,
           error: action.payload
         }));
@@ -110,12 +112,24 @@ export const balanceActionsAtom = atom(
 
       case 'UPDATE_BALANCE':
         const balance = action.payload as SiteCreditBalance;
-        set(balanceStateAtom, () => ({
+        const timestamp = new Date().toISOString();
+        
+        // Update balance state
+        set(balanceStateAtom, {
           data: balance,
-          lastUpdated: new Date().toISOString(),
+          lastUpdated: timestamp,
           isLoading: false,
           error: null
+        });
+
+        // Sync with session
+        set(sessionAtom, (prev) => ({
+          ...prev,
+          balance,
+          balanceLastUpdated: timestamp
         }));
+
+        // Update cache
         set(balanceCacheAtom, {
           data: balance,
           timestamp: Date.now()
@@ -129,5 +143,32 @@ export const balanceActionsAtom = atom(
     }
   }
 );
+
+// Type Guards
+export const isValidBalance = (balance: unknown): balance is SiteCreditBalance => {
+  return (
+    typeof balance === 'object' &&
+    balance !== null &&
+    'user_id' in balance &&
+    'available_balance' in balance &&
+    'pending_balance' in balance &&
+    'last_updated' in balance
+  );
+};
+
+// Utility Functions
+export const balanceUtils = {
+  isStale: (lastUpdated: string | null): boolean => {
+    if (!lastUpdated) return true;
+    return Date.now() - new Date(lastUpdated).getTime() > STALE_THRESHOLD;
+  },
+
+  formatBalance: (amount: number): string => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount);
+  }
+};
 
 export type { BalanceState, BalanceCache };

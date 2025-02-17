@@ -39,6 +39,7 @@ class BalanceResponseSchema(Schema):
 
     user_id = fields.Int(required=True)
     available_amount = fields.Decimal(required=True, as_string=True)
+    available_balance = fields.Decimal(attribute='available_amount', as_string=True)  # New field, mapped to same source
     pending_amount = fields.Decimal(required=True, as_string=True)
     last_updated = fields.DateTime(required=True)
 

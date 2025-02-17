@@ -1,48 +1,37 @@
-/**
- * Completion Screen Component
- * 
- * Implements the final step of the purchase flow with transaction
- * summary and confirmation. Provides clear success feedback and
- * next steps for the user.
- * 
- * Architectural Considerations:
- * - Clean transaction summary
- * - Proper success animations
- * - TypeScript integration
- * - Accessibility patterns
- */
+// src/components/features/payment/steps/CompletionScreen.tsx
 
 import { FC, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useAtomValue } from 'jotai';
 import { CheckCircle } from 'lucide-react';
-import { purchaseStateAtom } from '../../../../stores/purchase';
+import { useAtomValue } from 'jotai';
+import { sessionAtom } from '../../../../stores/session';
 import Button from '../../../common/Button';
 import type { TicketReservation } from '../../../../api/types/reservation';
+import type { PurchaseTransaction } from '../../../../features/payment/types';
 
 interface CompletionScreenProps {
   reservation: TicketReservation;
-  onClose: (transactionId: number) => void;
+  transaction: PurchaseTransaction | null;
+  onClose: () => void;
 }
 
 export const CompletionScreen: FC<CompletionScreenProps> = ({
   reservation,
+  transaction,
   onClose
 }) => {
-  const { transaction, balance } = useAtomValue(purchaseStateAtom);
+  const session = useAtomValue(sessionAtom);
 
-  // Auto-close on successful completion
   useEffect(() => {
-    if (transaction?.id) {
-      const timer = setTimeout(() => {
-        onClose(transaction.id);
-      }, 5000); // Auto-close after 5 seconds
+    const timer = setTimeout(() => {
+      if (transaction?.id) {
+        onClose();
+      }
+    }, 5000);
 
-      return () => clearTimeout(timer);
-    }
+    return () => clearTimeout(timer);
   }, [transaction?.id, onClose]);
 
-  // Early return if no transaction
   if (!transaction) return null;
 
   return (
@@ -61,7 +50,7 @@ export const CompletionScreen: FC<CompletionScreenProps> = ({
         <CheckCircle className="w-12 h-12 text-green-600" />
       </motion.div>
 
-      {/* Success Message */}
+      {/* Purchase Details */}
       <div className="space-y-2">
         <h3 className="text-xl font-semibold text-gray-900">
           Purchase Complete!
@@ -83,20 +72,20 @@ export const CompletionScreen: FC<CompletionScreenProps> = ({
           <div className="flex justify-between">
             <dt className="text-gray-500">Amount Paid</dt>
             <dd className="font-medium text-gray-900">
-              ${reservation.total_amount.toFixed(2)}
+              ${transaction.amount.toFixed(2)}
             </dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-gray-500">Tickets Purchased</dt>
             <dd className="font-medium text-gray-900">
-              {reservation.ticket_ids.length}
+              {transaction.meta_data?.ticket_ids?.length ?? 0}
             </dd>
           </div>
-          {balance && (
+          {session.balance && (
             <div className="flex justify-between border-t border-gray-200 pt-3">
               <dt className="text-gray-500">Remaining Balance</dt>
               <dd className="font-medium text-gray-900">
-                ${balance.available_amount.toFixed(2)}
+                ${session.balance.available_amount.toFixed(2)}
               </dd>
             </div>
           )}
@@ -108,7 +97,7 @@ export const CompletionScreen: FC<CompletionScreenProps> = ({
         variant="primary"
         size="lg"
         fullWidth
-        onClick={() => transaction.id && onClose(transaction.id)}
+        onClick={onClose}
       >
         View My Tickets
       </Button>

@@ -9,7 +9,7 @@
  */
 
 import type { ApiResponse } from './common';
-import type { ReservationStatus } from './reservation';
+import type { ReservationStatus, TicketReservation } from './reservation';
 
 // #region Domain Models
 
@@ -19,8 +19,8 @@ import type { ReservationStatus } from './reservation';
  */
 export interface SiteCreditBalance {
   user_id: number;
-  available_amount: number;
-  pending_amount: number;
+  available_balance: number;
+  pending_balance: number;
   last_updated: string;
 }
 
@@ -60,14 +60,16 @@ export interface PurchaseTransaction {
   status: PurchaseStatus;
   reference_type: ReferenceType;
   reference_id: string;
-  meta_data?: {
+  meta_data: {
+    notes?: string;
     reservation_id?: number;
     ticket_ids?: string[];
     failure_reason?: string;
     rollback_reason?: string;
   };
   created_at: string;
-  completed_at?: string;
+  completed_at: string | null;
+  credit_transaction_id: number | null;
 }
 
 // #region Error Handling
@@ -106,18 +108,17 @@ export interface PurchaseRequest {
  * @see backend: src/payment_service/schemas/response_schema.py
  */
 export interface PurchaseResponse {
-  transaction: PurchaseTransaction;
   message: string;
+  new_balance: number;
   tickets: string[];
   total_amount: number;
-  new_balance: number;
+  transaction: PurchaseTransaction;
 }
 
 // #region Service Response Types
 
 /**
  * Payment service response type collection
- * Ensures proper typing for all service endpoints
  */
 export interface PaymentServiceResponses {
   balance: ApiResponse<SiteCreditBalance>;
@@ -139,7 +140,6 @@ export enum PurchaseStep {
 
 /**
  * Purchase flow state interface
- * Implements proper null safety and type constraints
  */
 export interface PurchaseFlowState {
   currentStep: PurchaseStep;
@@ -156,13 +156,13 @@ export interface PurchaseFlowState {
 /**
  * Type guard for purchase errors
  */
-export function isPurchaseError(error: unknown): error is PurchaseError {
+export function isPurchaseError(value: unknown): value is PurchaseError {
   return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    'message' in error &&
-    Object.values(PurchaseErrorCode).includes((error as PurchaseError).code)
+    typeof value === 'object' &&
+    value !== null &&
+    'code' in value &&
+    'message' in value &&
+    Object.values(PurchaseErrorCode).includes((value as PurchaseError).code)
   );
 }
 
@@ -170,13 +170,47 @@ export function isPurchaseError(error: unknown): error is PurchaseError {
  * Type guard for purchase transactions
  */
 export function isPurchaseTransaction(
-  transaction: unknown
-): transaction is PurchaseTransaction {
+  value: unknown
+): value is PurchaseTransaction {
   return (
-    typeof transaction === 'object' &&
-    transaction !== null &&
-    'id' in transaction &&
-    'status' in transaction &&
-    Object.values(PurchaseStatus).includes((transaction as PurchaseTransaction).status)
+    typeof value === 'object' &&
+    value !== null &&
+    'id' in value &&
+    'status' in value &&
+    Object.values(PurchaseStatus).includes((value as PurchaseTransaction).status)
   );
+}
+
+/**
+ * Interface for payment actions hook result
+ */
+export interface UsePaymentActionsResult {
+  currentStep: PurchaseStep;
+  isProcessing: boolean;
+  error: PurchaseError | null;
+  transaction: PurchaseTransaction | null;
+  processPurchase: (reservationId: number) => Promise<void>;
+  resetPurchase: () => void;
+}
+
+export interface PurchaseReviewData {
+  reservation: TicketReservation;
+  available_balance: number;
+  payment_methods: {
+    site_credit: {
+      available: boolean;
+      reason?: string;
+    };
+    payment_gateway: {
+      available: boolean;
+      providers: PaymentProvider[];
+    };
+  };
+}
+
+export interface PaymentProvider {
+  id: string;
+  name: string;
+  type: 'credit_card' | 'paypal' | 'crypto';
+  enabled: boolean;
 }

@@ -44,6 +44,7 @@ class Balance(db.Model):
         return {
             'user_id': self.user_id,
             'available_amount': float(self.available_amount),
+            'available_balance': float(self.available_amount),
             'pending_amount': float(self.pending_amount),
             'last_updated': self.last_updated.isoformat()
         }

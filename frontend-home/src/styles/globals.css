@@ -1,3 +1,42 @@
+/* src/styles/globals.css */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Base Layer Extensions */
+@layer base {
+  /* Enable smooth scrolling behavior globally */
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Components Layer Extensions */
+@layer components {
+  /* Mobile-optimized sticky purchase panel */
+  .mobile-purchase-panel {
+    @apply fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Content spacing for sticky panel */
+  .main-content-with-panel {
+    @apply pb-20;  /* Base padding for content above panel */
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Utilities Layer Extensions */
+@layer utilities {
+  /* Enhanced backdrop blur utility */
+  .backdrop-blur-panel {
+    @apply bg-white/95 backdrop-blur-sm;
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  /* Safe area bottom spacing utility */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}

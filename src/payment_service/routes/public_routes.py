@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from src.shared.auth import token_required
 from src.payment_service.services import PaymentService
+from src.payment_service.schemas import BalanceResponseSchema
 from marshmallow import ValidationError
 import logging
 from src.payment_service.models import Transaction
@@ -17,9 +18,10 @@ def get_balance():
         balance, error = PaymentService.get_or_create_balance(request.current_user.id)
         if error:
             return jsonify({'error': error}), 400
+            
         return jsonify(balance.to_dict()), 200
     except Exception as e:
-        logger.error(f"Error getting balance: {str(e)}")
+        logger.error(f"Error getting balance: {str(e)}", exc_info=True)
         return jsonify({'error': 'Internal server error'}), 500
 
 @public_bp.route('/purchase', methods=['POST'])

@@ -1,62 +1,49 @@
+// src/features/payment/types.ts
+
 /**
- * Payment Feature Types
+ * Payment Flow Type Definitions
  * 
- * Core type definitions for the payment subsystem, integrated with
- * reservation management and aligned with backend payment service.
- * 
- * Architectural Considerations:
- * - Type safety across subsystem boundaries
- * - Backend service alignment
- * - State management integration
+ * Implements a user-controlled purchase flow with explicit state progression
+ * and comprehensive type safety. Ensures proper user confirmation before
+ * any financial transaction processing.
  */
 
-import type { ReservationStatus } from '../../api/types/reservation';
+import type { TicketReservation } from '../../api/types/reservation';
+import { 
+  PurchaseStatus,
+  type PurchaseTransaction as APIPurchaseTransaction 
+} from '../../api/types/payment';
 
-// #region Core Domain Types
-export interface SiteCreditBalance {
-  user_id: number;
-  available_amount: number;
-  pending_amount: number;
-  last_updated: string;
+export { PurchaseStatus };
+
+/**
+ * Purchase flow steps with explicit user control points
+ * 
+ * REVIEW     - Initial state, shows transaction details and requires user confirmation
+ * PROCESSING - Active transaction processing after user confirmation
+ * CONFIRMATION - Successful completion state
+ * ERROR     - Terminal error state
+ */
+export enum PurchaseStep {
+  REVIEW = 'REVIEW',
+  PROCESSING = 'PROCESSING',
+  CONFIRMATION = 'CONFIRMATION',
+  ERROR = 'ERROR'
 }
 
-// #region Transaction States
-export enum PurchaseStatus {
-  PENDING = 'pending',
-  PROCESSING = 'processing',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-  ROLLED_BACK = 'rolled_back'
+/**
+ * Core purchase state tracking
+ */
+export interface PurchaseState {
+  currentStep: PurchaseStep;
+  transaction: APIPurchaseTransaction | null;
+  error: PurchaseError | null;
+  isProcessing: boolean;
 }
 
-export enum ReferenceType {
-  TICKET_PURCHASE = 'ticket_purchase',
-  PRIZE_CLAIM = 'prize_claim',
-  REFUND = 'refund',
-  ADJUSTMENT = 'adjustment'
-}
-
-// #region Domain Models
-export interface PurchaseTransaction {
-  id: number;
-  user_id: number;
-  type: 'debit' | 'credit';
-  amount: number;
-  balance_after: number | null;
-  status: PurchaseStatus;
-  reference_type: ReferenceType;
-  reference_id: string;
-  meta_data?: {
-    reservation_id?: number;
-    ticket_ids?: string[];
-    failure_reason?: string;
-    rollback_reason?: string;
-  };
-  created_at: string;
-  completed_at?: string;
-}
-
-// #region Error Handling
+/**
+ * Granular error classification for proper error handling
+ */
 export enum PurchaseErrorCode {
   INSUFFICIENT_BALANCE = 'INSUFFICIENT_BALANCE',
   RESERVATION_EXPIRED = 'RESERVATION_EXPIRED',
@@ -70,33 +57,53 @@ export interface PurchaseError {
   details?: Record<string, unknown>;
 }
 
-// #region API Contracts
-export interface PurchaseResponse {
-  transaction: PurchaseTransaction;
-  message: string;
-  tickets: string[];
-  total_amount: number;
-  new_balance: number;
+export interface SiteCreditBalance {
+  user_id: number;
+  available_amount: number;
+  pending_amount: number;
+  last_updated: string;
 }
 
-export interface PurchaseRequest {
-  reservation_id: number;
-}
-
-// #region Flow State Management
-export enum PurchaseStep {
-  BALANCE_CHECK = 'BALANCE_CHECK',
-  PROCESSING = 'PROCESSING',
-  CONFIRMATION = 'CONFIRMATION',
-  ERROR = 'ERROR'
-}
-
+/**
+ * Complete state interface for purchase flow
+ * Tracks the entire lifecycle of a purchase transaction
+ */
 export interface PurchaseFlowState {
   currentStep: PurchaseStep;
-  reservationId: number | null;
-  reservationStatus: ReservationStatus | null;
+  reservation: TicketReservation | null;
   balance: SiteCreditBalance | null;
-  transaction: PurchaseTransaction | null;
+  transaction: APIPurchaseTransaction | null;
   error: PurchaseError | null;
   isProcessing: boolean;
+  canProceed?: boolean;  // New field to control user progression
+}
+
+// Re-export the API transaction type to maintain consistency
+export type PurchaseTransaction = APIPurchaseTransaction;
+
+/**
+ * Enhanced hook result type with user-controlled flow management
+ */
+export interface UsePaymentActionsResult {
+  currentStep: PurchaseStep;
+  isProcessing: boolean;
+  error: PurchaseError | null;
+  transaction: PurchaseTransaction | null;
+  canProceed: boolean;  // Added to control button availability
+  initiatePurchase: (reservationId: number) => Promise<void>;
+  processPurchase: (reservationId: number) => Promise<void>;
+  resetPurchase: () => void;
+}
+
+/**
+ * Type guard for purchase errors
+ */
+export function isPurchaseError(error: unknown): error is PurchaseError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    'message' in error &&
+    Object.values(PurchaseErrorCode).includes((error as PurchaseError).code)
+  );
 }

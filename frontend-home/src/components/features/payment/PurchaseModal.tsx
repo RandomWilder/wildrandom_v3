@@ -1,173 +1,137 @@
-/**
- * Purchase Modal Component
- * 
- * Implements the ticket purchase flow UI with proper state management
- * and error handling. Follows established modal patterns while maintaining
- * strict type safety and proper backend integration.
- */
-
-import React, { FC, useEffect, Suspense } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
+import { FC, useEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
+import { AlertTriangle, Loader } from 'lucide-react';
+import Card from '../../common/Card';
 import Button from '../../common/Button';
-import { FeatureErrorBoundary } from '../../common/ErrorBoundary';
-import { usePaymentActions } from '../../../hooks/usePaymentActions';
-import { useAtomValue } from 'jotai';
-import { purchaseStateAtom } from '../../../stores/purchase';
-import { PurchaseStep } from '../../../api/types/payment';
-import type { TicketReservation } from '../../../api/types/reservation';
-
-// Lazy load step components with proper path resolution
-const BalanceCheck = React.lazy(() => import('../payment/steps/BalanceCheck'));
-const ProcessingIndicator = React.lazy(() => import('../payment/steps/ProcessingIndicator'));
-const CompletionScreen = React.lazy(() => import('../payment/steps/CompletionScreen'));
+import { usePurchaseFlow } from '../../../stores/purchase-flow';
+import PaymentAPI from '../../../api/paymentApi';
+import { useAtom } from 'jotai';
+import { sessionAtom } from '../../../stores/session';
+import type { SiteCreditBalance } from '../../../api/types/payment';
 
 interface PurchaseModalProps {
   isOpen: boolean;
-  onClose: () => void;
-  reservation: TicketReservation;
   onComplete: (transactionId: number) => void;
+  onError: (error: string) => void;
 }
 
 /**
- * Modal component for handling the purchase flow with proper state transitions
+ * PurchaseModal Component
+ * 
+ * Handles transaction processing with proper state management and race condition prevention.
+ * Implements atomic balance updates and ensures single request processing.
  */
-export const PurchaseModal: FC<PurchaseModalProps> = ({
+const PurchaseModal: FC<PurchaseModalProps> = ({
   isOpen,
-  onClose,
-  reservation,
-  onComplete
+  onComplete,
+  onError
 }) => {
-  const {
-    isProcessing,
-    initiatePurchase,
-    processPurchase,
-    resetPurchase
-  } = usePaymentActions();
+  const { state } = usePurchaseFlow();
+  const { reservation, selectedPaymentMethod } = state;
+  const [isProcessing, setIsProcessing] = useState(false);
+  const processingRef = useRef(false);
+  const [, setSession] = useAtom(sessionAtom); // Removed unused session variable
 
-  // Subscribe to purchase state for step tracking
-  const { currentStep } = useAtomValue(purchaseStateAtom);
-
-  // Initialize purchase flow
   useEffect(() => {
-    if (isOpen && reservation) {
-      initiatePurchase(reservation.id);
-    }
-    return () => {
-      if (!isOpen) {
-        resetPurchase();
+    if (!isOpen || !reservation || !selectedPaymentMethod || processingRef.current) return;
+
+    const processTransaction = async () => {
+      if (processingRef.current) return;
+      processingRef.current = true;
+
+      try {
+        setIsProcessing(true);
+        const response = await PaymentAPI.processPurchase(reservation.id);
+
+        if (response.error) {
+          throw new Error(response.error.message);
+        }
+
+        if (!response.data?.transaction?.id) {
+          throw new Error('Invalid transaction response');
+        }
+
+        // Update session balance immediately after successful purchase
+        if (response.data && 'new_balance' in response.data) {
+          const newBalance: SiteCreditBalance = {
+            user_id: reservation.user_id, // Ensure this matches the expected type
+            available_balance: response.data.new_balance,
+            pending_balance: 0, // Default value as per type requirements
+            last_updated: new Date().toISOString()
+          };
+
+          setSession(prev => ({
+            ...prev,
+            balance: newBalance,
+            balanceLastUpdated: new Date().toISOString()
+          }));
+        }
+
+        onComplete(response.data.transaction.id);
+      } catch (err) {
+        onError(err instanceof Error ? err.message : 'Transaction failed');
+      } finally {
+        setIsProcessing(false);
+        processingRef.current = false;
       }
     };
-  }, [isOpen, reservation, initiatePurchase, resetPurchase]);
 
-  // Handle modal close with proper cleanup
-  const handleClose = () => {
-    if (!isProcessing) {
-      resetPurchase();
-      onClose();
-    }
-  };
+    processTransaction();
+  }, [isOpen, reservation, selectedPaymentMethod, onComplete, onError, setSession]);
 
-  // Step transition handlers
-  const handleProceedToPayment = () => {
-    processPurchase(reservation.id);
-  };
-
-  const handleTransactionComplete = (transactionId: number) => {
-    onComplete(transactionId);
-    handleClose();
-  };
-
-  // Loading fallback component
-  const LoadingSpinner: FC = () => (
-    <div className="flex items-center justify-center h-48">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
-    </div>
-  );
+  if (!isOpen || !reservation) return null;
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          {/* Modal Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={isProcessing ? undefined : handleClose}
-            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
-          />
-
-          {/* Modal Content */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="fixed inset-x-4 bottom-4 md:inset-auto md:top-[10%] md:left-1/2 md:-translate-x-1/2 md:max-w-lg md:w-full z-50"
-          >
-            <div className="bg-white rounded-xl shadow-xl overflow-hidden">
-              {/* Modal Header */}
-              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Complete Purchase
-                </h2>
-                {!isProcessing && (
-                  <button
-                    onClick={handleClose}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                    aria-label="Close modal"
-                  >
-                    <X className="w-5 h-5 text-gray-500" />
-                  </button>
-                )}
-              </div>
-
-              {/* Modal Content with Error Boundary */}
-              <FeatureErrorBoundary feature="Purchase Flow">
-                <div className="p-6">
-                  <Suspense fallback={<LoadingSpinner />}>
-                    {currentStep === PurchaseStep.BALANCE_CHECK && (
-                      <BalanceCheck
-                        reservation={reservation}
-                        onProceed={handleProceedToPayment}
-                      />
-                    )}
-
-                    {currentStep === PurchaseStep.PROCESSING && (
-                      <ProcessingIndicator 
-                        reservation={reservation}
-                      />
-                    )}
-
-                    {currentStep === PurchaseStep.CONFIRMATION && (
-                      <CompletionScreen
-                        reservation={reservation}
-                        onClose={handleTransactionComplete}
-                      />
-                    )}
-                  </Suspense>
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" />
+      
+      <Card variant="default" className="relative z-50 w-full max-w-lg mx-4">
+        <div className="p-6">
+          <div className="flex flex-col items-center text-center space-y-4">
+            {isProcessing ? (
+              <>
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                >
+                  <Loader className="w-12 h-12 text-indigo-600" />
+                </motion.div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Processing Your Purchase
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Please wait while we secure your tickets...
+                  </p>
                 </div>
-              </FeatureErrorBoundary>
-
-              {/* Modal Footer */}
-              {!isProcessing && (
-                <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
-                  <Button
-                    variant={currentStep === PurchaseStep.CONFIRMATION ? "primary" : "secondary"}
-                    fullWidth
-                    size="lg"
-                    onClick={handleClose}
-                    disabled={isProcessing}
-                  >
-                    {currentStep === PurchaseStep.CONFIRMATION ? 'View Tickets' : 'Cancel'}
-                  </Button>
+              </>
+            ) : (
+              <>
+                <AlertTriangle className="w-12 h-12 text-amber-500" />
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Processing Error
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    An error occurred while processing your purchase.
+                    Please try again or contact support.
+                  </p>
                 </div>
-              )}
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    processingRef.current = false;
+                    setIsProcessing(true);
+                  }}
+                >
+                  Retry Purchase
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      </Card>
+    </div>
   );
 };
 

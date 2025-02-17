@@ -1,49 +1,59 @@
 // src/components/features/reservation/TicketSelector.tsx
 
-import { FC, useEffect, useState } from 'react';
+import { FC, useState } from 'react';
 import Input from '../../common/Input';
 import ScrollNumberSelector from '../../common/ScrollNumberSelector';
 import { DollarSign, Ticket } from '../../common/icons';
 import type { Raffle } from '../../../api/types';
 import { motion, AnimatePresence } from 'framer-motion';
 
+/**
+ * Props interface for the TicketSelector component
+ * Implements controlled component pattern with explicit value/onChange
+ */
 interface TicketSelectorProps {
   raffle: Raffle;
-  onChange: (quantity: number) => void;
+  value: number;
+  onChange: (value: number) => void;
   disabled?: boolean;
   error?: string;
 }
 
+/**
+ * TicketSelector Component
+ * 
+ * Handles ticket quantity selection with validation and responsive UI.
+ * Implements both mobile (scroll) and desktop (input) interfaces.
+ * 
+ * @param props {@link TicketSelectorProps}
+ */
 const TicketSelector: FC<TicketSelectorProps> = ({
   raffle,
+  value,
   onChange,
   disabled = false,
   error
 }) => {
-  const [quantity, setQuantity] = useState<number>(1);
   const [localError, setLocalError] = useState<string | undefined>(error);
-  const [totalCost, setTotalCost] = useState<number>(raffle.ticket_price);
 
-  const handleQuantityChange = (newQuantity: number) => {
+  const handleQuantityChange = (newValue: number) => {
     setLocalError(undefined);
 
-    if (newQuantity > raffle.available_tickets) {
+    if (newValue > raffle.available_tickets) {
       setLocalError(`Only ${raffle.available_tickets} tickets available`);
       return;
     }
 
-    if (newQuantity > raffle.max_tickets_per_user) {
+    if (newValue > raffle.max_tickets_per_user) {
       setLocalError(`Maximum ${raffle.max_tickets_per_user} tickets per user`);
       return;
     }
 
-    setQuantity(newQuantity);
-    onChange(newQuantity);
+    onChange(newValue);
   };
 
-  useEffect(() => {
-    setTotalCost(quantity * raffle.ticket_price);
-  }, [quantity, raffle.ticket_price]);
+  // Calculate total cost based on current quantity
+  const totalCost = value * raffle.ticket_price;
 
   return (
     <div className="space-y-4">
@@ -57,7 +67,7 @@ const TicketSelector: FC<TicketSelectorProps> = ({
           <ScrollNumberSelector
             min={1}
             max={Math.min(raffle.available_tickets, raffle.max_tickets_per_user)}
-            value={quantity}
+            value={value}
             onChange={handleQuantityChange}
             disabled={disabled}
           />
@@ -69,7 +79,7 @@ const TicketSelector: FC<TicketSelectorProps> = ({
             type="number"
             min={1}
             max={Math.min(raffle.available_tickets, raffle.max_tickets_per_user)}
-            value={quantity}
+            value={value}
             onChange={(e) => handleQuantityChange(parseInt(e.target.value, 10))}
             state={localError || error ? "error" : "default"}
             error={localError || error}
@@ -110,7 +120,7 @@ const TicketSelector: FC<TicketSelectorProps> = ({
         
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">Quantity</span>
-          <span className="font-medium text-indigo-600">{quantity}</span>
+          <span className="font-medium text-indigo-600">{value}</span>
         </div>
 
         <div className="pt-3 border-t border-indigo-100">

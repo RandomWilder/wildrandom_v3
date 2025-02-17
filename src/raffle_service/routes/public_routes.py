@@ -8,6 +8,7 @@ from src.raffle_service.services import (
     TicketService,
     DrawService
 )
+from src.payment_service.services import PaymentService
 from src.raffle_service.models import RaffleStatus, RaffleState, Raffle, Ticket, TicketStatus
 from src.shared.database import db
 import logging
@@ -116,6 +117,9 @@ def reserve_tickets(raffle_id):
         if error:
             return jsonify({'error': error}), 400
 
+        # Get user's balance
+        balance, _ = PaymentService.get_or_create_balance(request.current_user.id)
+
         return jsonify({
             'reservation': reservation.to_dict(),
             'next_step': {
@@ -125,7 +129,8 @@ def reserve_tickets(raffle_id):
                 'payload': {
                     'reservation_id': reservation.id
                 }
-            }
+            },
+            'available_balance': float(balance.available_amount)  # Added field
         }), 200
 
     except Exception as e:
