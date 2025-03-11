@@ -4,12 +4,15 @@ import React from 'react';
 import { 
   Activity,
   CreditCard,
-  Crown
+  Crown,
+  DollarSign,
+  PlusCircle
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { UserActivity } from './UserActivity';
-import { UserCredits } from './UserCredits';
 import { UserLoyalty } from './UserLoyalty';
+import UserTransactions from './UserTransactions';
+import UserBalanceAdjustment from './UserBalanceAdjustment';
 import type { UserDetail } from '@/types/users/models';
 import { Card } from '@/components/ui/card';
 
@@ -32,14 +35,33 @@ const TabItem: React.FC<TabItemProps> = ({ value, icon, label, badgeCount }) => 
   </TabsTrigger>
 );
 
-export const UserDetailTabs: React.FC<{ user: UserDetail }> = ({ user }) => {
+interface UserDetailTabsProps {
+  user: UserDetail;
+  onBalanceUpdate?: () => void;
+}
+
+export const UserDetailTabs: React.FC<UserDetailTabsProps> = ({ 
+  user,
+  onBalanceUpdate 
+}) => {
   // Calculate badge counts for tabs
   const recentActivityCount = user.recent_activities.length;
 
+  const handleAdjustmentSuccess = () => {
+    if (onBalanceUpdate) {
+      onBalanceUpdate();
+    }
+  };
+
   return (
     <Card className="p-6">
-      <Tabs defaultValue="activity" className="space-y-6">
+      <Tabs defaultValue="transactions" className="space-y-6">
         <TabsList className="flex justify-start space-x-2 border-b border-gray-200 pb-2">
+          <TabItem
+            value="transactions"
+            icon={<CreditCard className="h-4 w-4" />}
+            label="Transactions"
+          />
           <TabItem
             value="activity"
             icon={<Activity className="h-4 w-4" />}
@@ -47,27 +69,35 @@ export const UserDetailTabs: React.FC<{ user: UserDetail }> = ({ user }) => {
             badgeCount={recentActivityCount}
           />
           <TabItem
-            value="credits"
-            icon={<CreditCard className="h-4 w-4" />}
-            label="Credits"
-          />
-          <TabItem
             value="loyalty"
             icon={<Crown className="h-4 w-4" />}
             label="Loyalty"
           />
+          <TabItem
+            value="adjustment"
+            icon={<PlusCircle className="h-4 w-4" />}
+            label="Adjustment"
+          />
         </TabsList>
+
+        <TabsContent value="transactions" className="mt-6">
+          <UserTransactions userId={user.id} />
+        </TabsContent>
 
         <TabsContent value="activity" className="mt-6">
           <UserActivity userId={user.id} />
         </TabsContent>
 
-        <TabsContent value="credits" className="mt-6">
-          <UserCredits userId={user.id} />
-        </TabsContent>
-
         <TabsContent value="loyalty" className="mt-6">
           <UserLoyalty userId={user.id} />
+        </TabsContent>
+
+        <TabsContent value="adjustment" className="mt-6">
+          <UserBalanceAdjustment 
+            userId={user.id} 
+            currentBalance={user.balance_available}
+            onSuccess={handleAdjustmentSuccess}
+          />
         </TabsContent>
       </Tabs>
     </Card>

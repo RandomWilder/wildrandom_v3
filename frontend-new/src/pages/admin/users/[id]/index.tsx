@@ -24,10 +24,7 @@ import { formatCurrency } from '@/utils/currency';
 import { UserAvatar } from '@/components/users/shared/UserAvatar';
 import { UserStatusBadge } from '@/components/users/shared/UserStatusBadge';
 import { UserRoleBadge } from '@/components/users/shared/UserRoleBadge';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { UserActivity } from '@/components/users/detail/UserActivity';
-import { UserCredits } from '@/components/users/detail/UserCredits';
-import { UserLoyalty } from '@/components/users/detail/UserLoyalty';
+import { UserDetailTabs } from '@/components/users/detail/UserDetailTabs';
 
 interface StatCardProps {
   icon: React.ReactNode;
@@ -179,9 +176,9 @@ const UserDetailPage: NextPageWithLayout = () => {
                   <DollarSign className="h-5 w-5 text-green-500 mr-2" />
                   <h3 className="text-lg font-medium text-gray-900">Balance</h3>
                 </div>
-                <span className="text-2xl font-bold text-gray-900">
+                <p className="text-2xl font-bold text-gray-900">
                   {formatCurrency(activeUser.balance_available)}
-                </span>
+                </p>
               </div>
               <p className="text-sm text-gray-500 flex items-center">
                 <Clock className="h-4 w-4 mr-1" />
@@ -254,27 +251,13 @@ const UserDetailPage: NextPageWithLayout = () => {
             </div>
 
             {/* Tabbed Content */}
-            <Card className="p-6">
-              <Tabs defaultValue="loyalty" className="space-y-6">
-                <TabsList>
-                  <TabsTrigger value="loyalty">Loyalty</TabsTrigger>
-                  <TabsTrigger value="credits">Credits</TabsTrigger>
-                  <TabsTrigger value="activity">Activity</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="loyalty">
-                  <UserLoyalty userId={activeUser.id} />
-                </TabsContent>
-
-                <TabsContent value="credits">
-                  <UserCredits userId={activeUser.id} />
-                </TabsContent>
-
-                <TabsContent value="activity">
-                  <UserActivity userId={activeUser.id} />
-                </TabsContent>
-              </Tabs>
-            </Card>
+            <UserDetailTabs 
+              user={activeUser} 
+              onBalanceUpdate={() => {
+                // Refresh user data to get updated balance
+                if (userId) fetchUser(userId);
+              }} 
+            />
           </div>
         </div>
       </div>

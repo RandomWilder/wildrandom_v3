@@ -103,6 +103,18 @@ export const authAPI = {
     return response;
   },
 
+  validateToken: async () => {
+    const response = await fetch('/api/auth/validate', {
+      headers: {
+        'Authorization': `Bearer ${sessionStorage.getItem('wildrandom_session')}`
+      }
+    });
+    if (!response.ok) {
+      throw new Error('Invalid token');
+    }
+    return response.json();
+  },
+
   handleError: (error: unknown): string => {
     if (axios.isAxiosError(error)) {
       const apiError = error as AxiosError<ApiErrorResponse>;

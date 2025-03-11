@@ -2,8 +2,10 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
+  "/admin/raffles/create": "pages/admin/raffles/create.js",
   "/admin/raffles": "pages/admin/raffles.js",
-  "/admin/users": "pages/admin/users.js",
+  "/admin/users/[id]": "pages/admin/users/[id].js",
+  "/admin/raffles/[id]": "pages/admin/raffles/[id].js",
   "/admin/prizes/pools": "pages/admin/prizes/pools.js",
   "/admin/prizes/pools/[id]": "pages/admin/prizes/pools/[id].js"
 }

@@ -8,37 +8,50 @@ import Button from '../Button';
 interface ErrorBoundaryState {
   error: Error | null;
   errorInfo: ErrorInfo | null;
+  uniqueKey: string; // Added for component identity tracking
 }
 
 export class GlobalErrorBoundary extends Component<PropsWithChildren, ErrorBoundaryState> {
   constructor(props: PropsWithChildren) {
     super(props);
-    this.state = { error: null, errorInfo: null };
+    this.state = { 
+      error: null, 
+      errorInfo: null,
+      uniqueKey: `error-boundary-${Date.now()}` // Ensures unique component identity
+    };
   }
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+  static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
     return { error, errorInfo: null };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     this.setState({
       error,
-      errorInfo
+      errorInfo,
+      uniqueKey: `error-boundary-${Date.now()}` // Regenerate key on error
     });
 
-    // Here we could send error reports to a service like Sentry
+    // Error reporting logic preserved
     console.error('Uncaught error:', error, errorInfo);
   }
 
   handleReset = (): void => {
-    this.setState({ error: null, errorInfo: null });
+    this.setState({ 
+      error: null, 
+      errorInfo: null,
+      uniqueKey: `error-boundary-${Date.now()}` // Fresh key on reset
+    });
     window.location.href = '/';
   };
 
   render(): React.ReactNode {
     if (this.state.error) {
       return (
-        <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
+        <div 
+          className="min-h-screen flex items-center justify-center p-4 bg-gray-50"
+          key={`error-view-${this.state.uniqueKey}`} // Unique error view key
+        >
           <Card variant="default" className="w-full max-w-lg">
             <div className="p-6 space-y-6">
               <div className="flex items-center space-x-4">
@@ -59,11 +72,11 @@ export class GlobalErrorBoundary extends Component<PropsWithChildren, ErrorBound
                 </p>
               </div>
 
-              <div className="flex space-x-4">
+              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
                 <Button
                   onClick={this.handleReset}
                   variant="primary"
-                  className="flex items-center"
+                  className="flex items-center justify-center"
                 >
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Reset Application
@@ -71,6 +84,7 @@ export class GlobalErrorBoundary extends Component<PropsWithChildren, ErrorBound
                 <Button
                   onClick={() => window.location.reload()}
                   variant="secondary"
+                  className="w-full sm:w-auto"
                 >
                   Reload Page
                 </Button>
@@ -94,6 +108,10 @@ export class GlobalErrorBoundary extends Component<PropsWithChildren, ErrorBound
       );
     }
 
-    return this.props.children;
+    return (
+      <div key={`content-${this.state.uniqueKey}`}>
+        {this.props.children}
+      </div>
+    );
   }
 }

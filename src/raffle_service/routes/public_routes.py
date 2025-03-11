@@ -74,6 +74,12 @@ def list_raffles():
 def get_my_tickets(raffle_id):
     """Get user's tickets for a specific raffle"""
     try:
+        # First get the raffle to access its title
+        raffle = Raffle.query.get(raffle_id)
+        if not raffle:
+            return jsonify({'error': 'Raffle not found'}), 404
+            
+        # Then get the user's tickets
         tickets, error = TicketService.get_user_tickets(
             user_id=request.current_user.id,
             raffle_id=raffle_id
@@ -81,12 +87,97 @@ def get_my_tickets(raffle_id):
         if error:
             return jsonify({'error': error}), 400
 
-        return jsonify([t.to_dict() for t in tickets]), 200
+        # Add raffle title to each ticket dictionary
+        ticket_dicts = []
+        for ticket in tickets:
+            ticket_dict = ticket.to_dict()
+            ticket_dict['raffle_title'] = raffle.title
+            ticket_dicts.append(ticket_dict)
+
+        return jsonify(ticket_dicts), 200
 
     except Exception as e:
         logger.error(f"Error getting user tickets: {str(e)}", exc_info=True)
         return jsonify({'error': 'Internal server error'}), 500
-    
+
+@public_raffle_bp.route('/my-tickets-groups', methods=['GET'])
+@token_required
+def get_my_ticket_groups():
+    """Get user's tickets grouped by raffle with enhanced mobile-first metrics"""
+    try:
+        tickets = Ticket.query.filter_by(
+            user_id=request.current_user.id
+        ).all()
+
+        raffle_groups = {}
+        for ticket in tickets:
+            raffle_id = ticket.raffle_id
+            if raffle_id not in raffle_groups:
+                total_time_data = ticket.raffle.calculate_time_remaining()
+                
+                # Calculate participation metrics
+                revealed_count = len([t for t in ticket.raffle.tickets.filter_by(
+                    user_id=request.current_user.id,
+                    is_revealed=True
+                ).all()])
+                
+                total_user_tickets = len([t for t in ticket.raffle.tickets.filter_by(
+                    user_id=request.current_user.id
+                ).all()])
+                
+                revealed_percentage = (revealed_count / total_user_tickets * 100) if total_user_tickets > 0 else 0
+
+                # Check for winning tickets
+                has_winning_tickets = any(
+                    draw.ticket.user_id == request.current_user.id 
+                    for draw in ticket.raffle.draws.filter_by(result='winner').all()
+                )
+
+                raffle_groups[raffle_id] = {
+                    # Core identifiers
+                    'raffle_id': ticket.raffle.id,
+                    'slug': ticket.raffle.title.lower().replace(' ', '-'),
+                    'title': ticket.raffle.title,
+                    
+                    # Ticket metrics
+                    'total_tickets': 0,
+                    'unrevealed_tickets': 0,
+                    
+                    # Enhanced state management
+                    'raffle_state': ticket.raffle.state,
+                    'is_active': ticket.raffle.status == 'active',
+                    'participation_status': {
+                        'revealed_percentage': round(revealed_percentage, 1),
+                        'has_winning_tickets': has_winning_tickets
+                    },
+                    
+                    # Optimized time tracking
+                    'time_remaining': total_time_data,
+                    'timestamps': {
+                        'end_time': ticket.raffle.end_time.isoformat(),
+                        'start_time': ticket.raffle.start_time.isoformat(),
+                        'timezone': 'UTC'  # Base timezone for client conversion
+                    },
+                    
+                    # Mobile interaction metrics
+                    'card_metrics': {
+                        'progress_percentage': revealed_percentage,
+                        'action_required': not ticket.is_revealed,
+                        'swipe_enabled': ticket.raffle.state in ['open', 'active']
+                    }
+                }
+            
+            # Update counts
+            raffle_groups[raffle_id]['total_tickets'] += 1
+            if not ticket.is_revealed:
+                raffle_groups[raffle_id]['unrevealed_tickets'] += 1
+
+        return jsonify(list(raffle_groups.values())), 200
+
+    except Exception as e:
+        logger.error(f"Error getting ticket groups: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 @public_raffle_bp.route('/<int:raffle_id>/reserve', methods=['POST'])
 @token_required
 def reserve_tickets(raffle_id):
@@ -314,13 +405,20 @@ def discover_prize(raffle_id: int, ticket_id: str):
                 'prize': {
                     'instance_id': instance.instance_id,
                     'type': instance.instance_type,
+                    'name': instance.template.name,
                     'values': {
                         'retail': float(instance.retail_value),
                         'cash': float(instance.cash_value),
                         'credit': float(instance.credit_value)
                     }
-                }
-            }), 200
+                },
+                    'ticket': {
+                        'id': ticket.ticket_id,           # Add ticket ID (string identifier)
+                        'number': ticket.ticket_number    # Add ticket number (display value)
+                    },
+                    'raffle_id': raffle_id,               # Add raffle ID from route parameter
+                    'user_id': request.current_user.id    # Add user ID from request context
+                }), 200
         else:
             return jsonify({
                 'message': 'No prize won',

@@ -33,6 +33,21 @@ self.__BUILD_MANIFEST = {
       "static/chunks/webpack.js",
       "static/chunks/main.js",
       "static/chunks/pages/admin/raffles.js"
+    ],
+    "/admin/raffles/[id]": [
+      "static/chunks/webpack.js",
+      "static/chunks/main.js",
+      "static/chunks/pages/admin/raffles/[id].js"
+    ],
+    "/admin/raffles/create": [
+      "static/chunks/webpack.js",
+      "static/chunks/main.js",
+      "static/chunks/pages/admin/raffles/create.js"
+    ],
+    "/admin/users/[id]": [
+      "static/chunks/webpack.js",
+      "static/chunks/main.js",
+      "static/chunks/pages/admin/users/[id].js"
     ]
   },
   "ampFirstPages": []

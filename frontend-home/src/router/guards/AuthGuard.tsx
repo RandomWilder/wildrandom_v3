@@ -1,9 +1,19 @@
+/**
+ * Authentication Guard
+ * 
+ * Protects gameplay routes with:
+ * - Session validation
+ * - State preservation
+ * - Elegant transitions
+ * - Recovery paths
+ */
+
 import { FC, ReactNode, useEffect } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAtom } from 'jotai';
 import { authStateAtom } from '../../stores/auth';
 import { authAPI } from '../../api/client';
-import { loadingIcons } from '../../components/common/icons';
+import { Loader } from 'lucide-react';
 
 interface AuthGuardProps {
   children: ReactNode;
@@ -17,10 +27,9 @@ const AuthGuard: FC<AuthGuardProps> = ({
   const location = useLocation();
   const navigate = useNavigate();
   const [authState, setAuthState] = useAtom(authStateAtom);
-  const { Spinner } = loadingIcons;
 
   useEffect(() => {
-    let isMounted = true;
+    let mounted = true;
 
     const validateSession = async () => {
       if (!authState.isAuthenticated && (localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token'))) {
@@ -28,7 +37,7 @@ const AuthGuard: FC<AuthGuardProps> = ({
           setAuthState(prev => ({ ...prev, isLoading: true }));
           const response = await authAPI.getProfile();
           
-          if (isMounted) {
+          if (mounted) {
             const tokenExpiry = new Date();
             tokenExpiry.setHours(tokenExpiry.getHours() + 24);
 
@@ -43,7 +52,8 @@ const AuthGuard: FC<AuthGuardProps> = ({
             });
           }
         } catch (error) {
-          if (isMounted) {
+          if (mounted) {
+            // Clear invalid session state
             localStorage.removeItem('auth_token');
             sessionStorage.removeItem('auth_token');
             
@@ -57,10 +67,11 @@ const AuthGuard: FC<AuthGuardProps> = ({
               refreshInProgress: false
             });
             
+            // Redirect with state preservation
             navigate(fallbackUrl, { 
               state: { 
                 from: location,
-                message: 'Your session has expired. Please sign in again.' 
+                message: 'Your session has expired. Please sign in to continue playing.' 
               },
               replace: true 
             });
@@ -72,25 +83,28 @@ const AuthGuard: FC<AuthGuardProps> = ({
     validateSession();
 
     return () => {
-      isMounted = false;
+      mounted = false;
     };
   }, [setAuthState, location, navigate, fallbackUrl, authState.isAuthenticated]);
 
+  // Loading state with engaging animation
   if (authState.isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center space-y-4">
-          <Spinner className="w-12 h-12 text-indigo-600 animate-spin" />
+          <Loader className="w-12 h-12 text-indigo-600 animate-spin" />
           <p className="text-gray-600">Validating your session...</p>
         </div>
       </div>
     );
   }
 
+  // Redirect unauthorized access
   if (!authState.isAuthenticated) {
     return <Navigate to={fallbackUrl} state={{ from: location }} replace />;
   }
 
+  // Render protected route
   return <>{children}</>;
 };
 

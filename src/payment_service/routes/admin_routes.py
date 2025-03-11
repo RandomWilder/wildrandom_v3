@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from src.shared.auth import token_required, admin_required
 from src.payment_service.services import PaymentService
 from decimal import Decimal
+from src.payment_service.models import Transaction
 import logging
 
 logger = logging.getLogger(__name__)
@@ -107,4 +108,69 @@ def process_refund():
 
     except Exception as e:
         logger.error(f"Error processing refund: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+    
+
+@admin_bp.route('/users/<int:user_id>/transactions', methods=['GET'])
+@token_required
+@admin_required
+def get_user_transactions(user_id):
+    """Get transactions for a specific user (admin only)"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        status = request.args.get('status')
+        ref_type = request.args.get('reference_type')
+        
+        logger.debug(f"Admin retrieving transactions for user_id: {user_id}")
+        
+        # Query the transactions directly using SQLAlchemy
+        query = Transaction.query.filter_by(user_id=user_id)
+        
+        # Apply filters if provided
+        if status:
+            query = query.filter_by(status=status)
+        if ref_type:
+            query = query.filter_by(reference_type=ref_type)
+        
+        # Order by created_at descending (newest first)
+        query = query.order_by(Transaction.created_at.desc())
+        
+        # Paginate results
+        paginated = query.paginate(page=page, per_page=per_page, error_out=False)
+        
+        return jsonify({
+            'transactions': [t.to_dict() for t in paginated.items],
+            'total': paginated.total,
+            'page': page,
+            'per_page': per_page,
+            'pages': paginated.pages
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error getting user transactions: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
+    
+
+@admin_bp.route('/users/<int:user_id>/balance', methods=['GET'])
+@token_required
+@admin_required
+def get_user_balance(user_id):
+    """Get balance for a specific user (admin only)"""
+    try:
+        # Get or create balance for the user
+        balance, error = PaymentService.get_or_create_balance(user_id)
+        
+        if error:
+            return jsonify({'error': error}), 400
+            
+        # Return just the balance information
+        return jsonify({
+            'user_id': balance.user_id,
+            'available_amount': float(balance.available_amount),
+            'last_updated': balance.last_updated.isoformat() if balance.last_updated else None
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error getting user balance: {str(e)}", exc_info=True)
         return jsonify({'error': 'Internal server error'}), 500

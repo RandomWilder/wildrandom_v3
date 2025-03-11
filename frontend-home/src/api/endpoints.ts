@@ -13,6 +13,10 @@ import type {
   ApiResponse,
   ApiError
 } from './types';
+import type { 
+  TicketGroup, 
+  TicketGroupRequestConfig 
+} from './types/ticketGroups';
 
 /**
  * Raffle API Service
@@ -47,7 +51,6 @@ export const raffleAPI = {
     try {
       const { data } = await axiosInstance.get<Raffle>(`/api/raffles/${raffleId}`);
       
-      // Validate response structure
       if (!data || typeof data.id !== 'number') {
         return { error: 'Invalid response format from server' };
       }
@@ -57,12 +60,10 @@ export const raffleAPI = {
       if (axios.isAxiosError(err)) {
         const error = err as AxiosError<ApiError>;
         
-        // Handle specific error cases
         if (error.response?.status === 404) {
           return { error: 'Raffle not found' };
         }
 
-        // Handle network or server errors
         if (!error.response) {
           return { error: 'Network error - please check your connection' };
         }
@@ -145,6 +146,31 @@ export const raffleAPI = {
         const error = err as AxiosError<ApiError>;
         return {
           error: error.response?.data?.error || 'Failed to fetch raffle statistics'
+        };
+      }
+      return { error: 'An unexpected error occurred' };
+    }
+  },
+
+  /**
+   * Get user's ticket groups
+   * @param config - Optional request configuration for filtering and sorting
+   * @returns Promise<ApiResponse<TicketGroup[]>>
+   */
+  getTicketGroups: async (
+    config?: TicketGroupRequestConfig
+  ): Promise<ApiResponse<TicketGroup[]>> => {
+    try {
+      const { data } = await axiosInstance.get<TicketGroup[]>(
+        '/api/raffles/my-tickets-groups',
+        { params: config }
+      );
+      return data ; // Matches existing pattern
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        const error = err as AxiosError<ApiError>;
+        return {
+          error: error.response?.data?.error || 'Failed to fetch ticket groups'
         };
       }
       return { error: 'An unexpected error occurred' };
